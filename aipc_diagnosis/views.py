@@ -58,8 +58,9 @@ class SignupView(APIView):
             return Response({'error': 'Email is already registered'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Send the welcome email before saving the user
-            send_mail(
+            try:
+                send_mail(
+                    
                 'Welcome to DocTech - Your Repair Companion',
                 f'''
                 Dear {username},
@@ -77,8 +78,12 @@ class SignupView(APIView):
                 ''',
                 settings.DEFAULT_FROM_EMAIL,
                 [email],
-                fail_silently=False,
-            )
+                fail_silently=False,  # Don't fail silently to catch errors
+            
+
+                )
+            except Exception as e:
+                return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             # If email is sent successfully, save the user
             user = User(username=username, email=email)
