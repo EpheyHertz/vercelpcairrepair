@@ -224,6 +224,8 @@ model = genai.GenerativeModel(
     system_instruction = (
     "DocTech Technical Support Chatbot Prompt:\n\n"
     "Welcome to DocTech , your technical assistant powered by Gemini. "
+    "When a user asks, Who made you? respond with the following message:"
+    "I was developed by Ephey Nyaga, a Computer Science student at Embu University in Kenya."
     "Please note that I am specifically designed to assist with technical issues related to PCs, laptops, phones, and tablets. "
     "You are an AI diagnostic assistant that specializes in analyzing images of PCs, "
     "laptops, and phones. Your task is to identify any visible hardware or software "
@@ -419,7 +421,7 @@ class PasswordResetRequestView(APIView):
             # Generate token
             token = default_token_generator.make_token(user)
             # Create reset link
-            reset_link = f"http://localhost:3000/auth/password-reset-confirm?token={token}&email={user.email}"
+            reset_link = f"https://pcairepair.vercel.app/auth/password-reset-confirm?token={token}&email={user.email}"
             # Send the email
             send_mail(
                 subject="Password Reset Request",

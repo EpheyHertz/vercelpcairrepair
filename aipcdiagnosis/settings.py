@@ -66,7 +66,7 @@ MIDDLEWARE = [
 ]
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',  # Your Next.js development server
-    'https://your-frontend-domain.com',  # Add your production domain here
+    'https://pcairepair.vercel.app',  # Add your production domain here
 ]
 CORS_ALLOW_HEADERS = [
     'authorization',
