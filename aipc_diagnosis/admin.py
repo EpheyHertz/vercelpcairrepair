@@ -1,6 +1,6 @@
 from django.contrib import admin
-from .models import UserProfile, Chat, ChatMessage, Diagnosis
-
+from .models import UserProfile, Chat, ChatMessage, Diagnosis,User
+admin.site.register(User)
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'fullname', 'profile_picture')

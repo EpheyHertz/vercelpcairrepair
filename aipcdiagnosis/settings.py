@@ -29,7 +29,7 @@ SECRET_KEY = 'django-insecure-+*%q1pd1-%wrd=vu290yo%fw5b-0+d&b2z^yetf4qwte9*l@s7
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['aipcrepair.onrender.com']
+ALLOWED_HOSTS = ['aipcrepair.onrender.com','127.0.0.1']
 
 
 # Application definition
@@ -74,7 +74,7 @@ CORS_ALLOW_HEADERS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 
-
+AUTH_USER_MODEL = 'aipc_diagnosis.User'
 ROOT_URLCONF = 'aipcdiagnosis.urls'
 
 TEMPLATES = [

@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
+# from django.contrib.auth.models import User
 from rest_framework.validators import UniqueValidator
-from .models import UserProfile,Chat,ChatMessage
+from .models import UserProfile,Chat,ChatMessage,User
 
 class UserProfileSerializer(serializers.ModelSerializer):
     # Make the email read-only

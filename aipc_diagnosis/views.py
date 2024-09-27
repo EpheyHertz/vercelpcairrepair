@@ -14,8 +14,8 @@ from PIL import Image
 from rest_framework.permissions import AllowAny
 from django.core.mail import send_mail
 from django.contrib.auth.tokens import default_token_generator
-from django.contrib.auth.models import User
-from .models import UserProfile
+# from django.contrib.auth.models import User
+from .models import UserProfile,User
 from .serializers import UserProfileSerializer
 from django.shortcuts import get_object_or_404
 from django.conf import settings
@@ -56,7 +56,8 @@ class SignupView(APIView):
         # Check if email is already registered
         if User.objects.filter(email=email).exists():
             return Response({'error': 'Email is already registered'}, status=status.HTTP_400_BAD_REQUEST)
-
+        user = User(username=username, email=email)
+        user.set_password(password)
         try:
             try:
                 send_mail(
@@ -86,15 +87,14 @@ class SignupView(APIView):
                 return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             # If email is sent successfully, save the user
-            user = User(username=username, email=email)
-            user.set_password(password)
+            
             user.save()
 
             return Response({'message': 'User registered successfully!'}, status=status.HTTP_201_CREATED)
 
-        except Exception as e:
-            # If email sending fails or any other error occurs, return an error response
-            return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # except Exception as e:
+        #     # If email sending fails or any other error occurs, return an error response
+        #     return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         except IntegrityError:
             return Response({'error': 'An error occurred while creating the user. Please try again.'}, status=status.HTTP_400_BAD_REQUEST)

@@ -1,12 +1,19 @@
 from django.db import models
-from django.contrib.auth.models import User
+# from django.contrib.auth.models import User
 # Create your models here.
 from django.db import models
-from django.contrib.auth.models import User
+# from django.contrib.auth.models import User
+from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
+from django.conf import settings
+class User(AbstractUser):
+    has_donated = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.username
 
 class UserProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
     profile_picture = models.URLField(max_length=200, blank=True, null=True)  # URL to the profile picture on Backblaze
     fullname = models.CharField(max_length=255, blank=True)
     about = models.TextField(blank=True)
@@ -31,8 +38,10 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return self.user.username
+
+
 class Chat(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chats')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='chats')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -51,7 +60,7 @@ class ChatMessage(models.Model):
 
 
 class Diagnosis(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='diagnoses')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='diagnoses')
     symptoms = models.TextField()  # User input symptoms
     diagnosis_result = models.TextField()  # Result from AI model
     image = models.ImageField(upload_to='diagnoses/')  # Store the image file
