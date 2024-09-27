@@ -57,51 +57,45 @@ class SignupView(APIView):
         if User.objects.filter(email=email).exists():
             return Response({'error': 'Email is already registered'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Create the user
-        user = User(username=username, email=email)
-        user.set_password(password)
-
         try:
-            try:
             # Send the welcome email before saving the user
-                send_mail(
-                        'Welcome to DocTech - Your Repair Companion',
-                        f'''
-                        Dear {username},
-        
-                        Welcome to DocTech! We are excited to have you on board as a member of our community dedicated to the repair of PCs, tablets, phones, and laptops.
+            send_mail(
+                'Welcome to DocTech - Your Repair Companion',
+                f'''
+                Dear {username},
 
-                        As a member of DocTech, you now have access to a range of tools and resources designed to help you diagnose and repair a variety of tech issues. Whether you're experiencing software glitches, hardware failures, or need general tech support, our platform is here to assist you.
+                Welcome to DocTech! We are excited to have you on board as a member of our community dedicated to the repair of PCs, tablets, phones, and laptops.
 
-                        If you have any questions or need assistance, feel free to reach out to our support team at epheynyaga@gmail.com.
+                As a member of DocTech, you now have access to a range of tools and resources designed to help you diagnose and repair a variety of tech issues. Whether you're experiencing software glitches, hardware failures, or need general tech support, our platform is here to assist you.
 
-                        We're thrilled to have you with us and look forward to supporting you on your repair journey!
+                If you have any questions or need assistance, feel free to reach out to our support team at epheynyaga@gmail.com.
 
-                        Best regards,
-                        The DocTech Team
-                        ''',
-                        settings.DEFAULT_FROM_EMAIL,
-                        [email],
-                        fail_silently=False,
-                    )
-            except Exception as e:
-                return Response({'error': f'Failed to send welcome email!!'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                We're thrilled to have you with us and look forward to supporting you on your repair journey!
 
+                Best regards,
+                The DocTech Team
+                ''',
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=False,
+            )
 
-            # Save the user after sending the email
+            # If email is sent successfully, save the user
+            user = User(username=username, email=email)
+            user.set_password(password)
             user.save()
 
             return Response({'message': 'User registered successfully!'}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            # If email sending fails or any other error occurs, return an error response
+            return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         except IntegrityError:
             return Response({'error': 'An error occurred while creating the user. Please try again.'}, status=status.HTTP_400_BAD_REQUEST)
 
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        except Exception as e:
-            # Handle unexpected exceptions
-            return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
