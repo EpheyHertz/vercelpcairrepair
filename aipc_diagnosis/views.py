@@ -41,6 +41,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 class Welcome(APIView):
+    permission_classes = [AllowAny]
     def get(self,request):
         return Response({"message":"Welcome to pc diagnosis apis"})
     
@@ -99,6 +100,7 @@ class Welcome(APIView):
 
 
 class SignupView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         username = request.data.get('username')
         email = request.data.get('email')
@@ -123,24 +125,23 @@ class SignupView(APIView):
         try:
             token = default_token_generator.make_token(user)
             verification_url = f'https://pcairepair.vercel.app/verify-email/?email={user.email}&token={token}'
+            print(verification_url)
 
             email_subject = 'Verify your email address'
-            email_body = render_to_string('email_verification_template.html', {
-                'user': user,
-                'verification_url': verification_url,
-            })
+            email_body = f'Hello {user.username},\n\n' \
+                         f'Thank you for registering with us! Please verify your email address by clicking the link below:\n\n' \
+                         f'{verification_url}\n\n' \
+                         f'If you didn’t request this, please ignore this email.\n\n' \
+                         f'Best regards,\nThe DocTech Team'
 
             # Prepare email message
-            email_message = EmailMultiAlternatives(
+            send_mail(
                 subject=email_subject,
-                body=f'Please verify your email by clicking the link below.Click here {verification_url}',
+                message=email_body,
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[email],
+                recipient_list=[user.email],
+                fail_silently=False,
             )
-            email_message.attach_alternative(email_body, "text/html")  # Add HTML content
-
-            # Send the email
-            email_message.send(fail_silently=False)
 
             return Response({'message': 'User registered successfully! Please verify your email.'}, status=status.HTTP_201_CREATED)
 
@@ -149,7 +150,8 @@ class SignupView(APIView):
             return Response({'error': f'Failed to send verification email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-class VerifyEmailView(APIView): 
+class VerifyEmailView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         email = request.data.get('email', '')
         token = request.data.get('token', '')
@@ -167,22 +169,20 @@ class VerifyEmailView(APIView):
 
         # Send welcome email
         try:
-            
             login_url = f'https://pcairepair.vercel.app/auth/login'
             email_subject = 'Welcome to DocTech!'
-            email_body = render_to_string('welcome_email_template.html', {
-                'user': user,
-                'login_url': login_url,
-            })
+            email_body = f'Hello {user.username},\n\n' \
+                         f'Welcome to DocTech! We’re excited to have you on board. Click the link below to log in:\n\n' \
+                         f'{login_url}\n\n' \
+                         f'Best regards,\nThe DocTech Team'
 
-            email_message = EmailMultiAlternatives(
-                email_subject,
-                email_body,
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email]
+            send_mail(
+                subject=email_subject,
+                message=email_body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
             )
-            email_message.attach_alternative(email_body, "text/html")
-            email_message.send()
 
             return Response('Email successfully confirmed', status=status.HTTP_200_OK)
 
@@ -578,28 +578,29 @@ class PasswordResetRequestView(APIView):
             # Create reset link
             reset_link = f"https://pcairepair.vercel.app/auth/password-reset-confirm?token={token}&email={user.email}"
 
-            # Render email content using HTML template
+            # Prepare email content
             email_subject = "Password Reset Request"
-            email_body = render_to_string('password_reset_email.html', {
-                'user': user,
-                'reset_link': reset_link,
-            })
-
-            # Send the HTML email
-            email_message = EmailMultiAlternatives(
-                subject=email_subject,
-                body=f"Click the link below to reset your password. Click here {reset_link}",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[user.email],
+            email_body = (
+                f"Hello {user.username},\n\n"
+                "You requested a password reset. Click the link below to reset your password:\n\n"
+                f"{reset_link}\n\n"
+                "If you didn't request this, please ignore this email.\n\n"
+                "Best regards,\nThe DocTech Team"
             )
-            email_message.attach_alternative(email_body, "text/html")
-            email_message.send(fail_silently=False)
+
+            # Send the email
+            send_mail(
+                subject=email_subject,
+                message=email_body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
 
             return Response({'message': 'Password reset link has been sent to your email.'}, status=status.HTTP_200_OK)
+
         except User.DoesNotExist:
             return Response({'error': 'User with this email does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-
 
 
 class PasswordResetConfirmView(APIView):
@@ -623,6 +624,7 @@ class PasswordResetConfirmView(APIView):
         
 
 class ContactUsView(APIView):
+    permission_classes = [IsAuthenticated]
     def post(self, request):
         full_name = request.data.get('full_name')
         email = request.data.get('email')
