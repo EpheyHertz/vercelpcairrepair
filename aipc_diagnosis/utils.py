@@ -3,6 +3,13 @@ import tempfile
 from rest_framework.exceptions import ValidationError
 from django.conf import settings
 from b2sdk.v2 import B2Api, InMemoryAccountInfo
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+
+class EmailVerificationTokenGenerator(PasswordResetTokenGenerator):
+    def _make_hash_value(self, user, timestamp):
+        return str(user.pk) + str(timestamp) + str(user.is_active)
+
+email_verification_token = EmailVerificationTokenGenerator()
 
 def upload_image_to_backblaze(file, existing_image=None, bucket_name=settings.AWS_STORAGE_BUCKET_NAME):
     # Validate the file

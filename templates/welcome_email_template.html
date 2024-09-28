@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to DocTech</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 100%;
+            padding: 20px;
+            background-color: #ffffff;
+            max-width: 600px;
+            margin: 40px auto;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background-color: #0073e6;
+            padding: 20px;
+            text-align: center;
+            color: white;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+        .content {
+            padding: 20px;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #0073e6;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Welcome to DocTech!</h1>
+        </div>
+        <div class="content">
+            <p>Hi {{ user.username }},</p>
+            <p>Welcome to the DocTech family! We're thrilled to have you on board. You now have access to a range of tools and resources to help you diagnose and repair PCs, tablets, phones, and laptops.</p>
+            <p>To get started, simply log in to your account by clicking the button below:</p>
+            <a href="{{ login_url }}" class="button">Log In to Your Account</a>
+            <p>If you have any questions or need assistance, feel free to reach out to us.</p>
+            <p>Best regards,<br>The DocTech Team</p>
+        </div>
+        <div class="footer">
+            <p>© 2024 DocTech. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

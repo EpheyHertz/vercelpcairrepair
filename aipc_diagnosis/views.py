@@ -23,10 +23,15 @@ from django.db import IntegrityError
 import io
 import os
 import tempfile
+import smtplib
 from .models import Chat, ChatMessage, Diagnosis
 from rest_framework.exceptions import ValidationError
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
 # from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from django.contrib.auth.tokens import default_token_generator
+
 
 import google.generativeai as genai
 GEMINI_AI_API_KEY=settings.GEMINI_AI_API_KEY
@@ -38,6 +43,60 @@ logger = logging.getLogger(__name__)
 class Welcome(APIView):
     def get(self,request):
         return Response({"message":"Welcome to pc diagnosis apis"})
+    
+
+# class SignupView(APIView):
+#     def post(self, request):
+#         # Step 1: Use the SignupSerializer for validation
+#         serializer = SignupSerializer(data=request.data)
+
+#         if serializer.is_valid():
+#             # Step 2: Create the user using validated data
+#             try:
+#                 user = serializer.save()
+
+#                 # Step 3: Attempt to send the welcome email
+#                 try:
+#                     send_mail(
+#                         'Welcome to DocTech - Your Repair Companion',
+#                         f'''
+#                         Dear {user.username},
+
+#                         Welcome to DocTech! We are excited to have you on board as a member of our community dedicated to the repair of PCs, tablets, phones, and laptops.
+
+#                         As a member of DocTech, you now have access to a range of tools and resources designed to help you diagnose and repair a variety of tech issues. Whether you're experiencing software glitches, hardware failures, or need general tech support, our platform is here to assist you.
+
+#                         If you have any questions or need assistance, feel free to reach out to our support team at epheynyaga@gmail.com.
+
+#                         We're thrilled to have you with us and look forward to supporting you on your repair journey!
+
+#                         Best regards,
+#                         The DocTech Team
+#                         ''',
+#                         settings.DEFAULT_FROM_EMAIL,
+#                         [user.email],
+#                         fail_silently=False,  # Fail loudly to catch any SMTP errors
+#                     )
+#                 except Exception as e:
+#                     # Rollback user creation if email fails
+#                     user.delete()  # Remove the user if the email wasn't sent successfully
+#                     return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#                 # Step 4: Return success response if everything works
+#                 return Response({'message': 'User registered successfully!'}, status=status.HTTP_201_CREATED)
+
+#             except Exception as e:
+#                 return Response({'error': f'Error during registration: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#         # If serializer is not valid, return the errors
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# from django.urls import reverse
+# from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+# from django.utils.encoding import force_bytes
+# from .utils import email_verification_token  # Import the token generator
+# from django.contrib.sites.shortcuts import get_current_site
+
 
 class SignupView(APIView):
     def post(self, request):
@@ -49,58 +108,151 @@ class SignupView(APIView):
         if not username or not email or not password:
             return Response({'error': 'Username, email, and password are required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if username is already taken
+        # Check if username or email is already taken
         if User.objects.filter(username=username).exists():
             return Response({'error': 'Username is already taken'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check if email is already registered
         if User.objects.filter(email=email).exists():
             return Response({'error': 'Email is already registered'}, status=status.HTTP_400_BAD_REQUEST)
-        user = User(username=username, email=email)
+
+        # Create the user (inactive until email is verified)
+        user = User(username=username, email=email, is_active=False)
         user.set_password(password)
+        user.save()
+
+        # Send verification email
         try:
-            try:
-                send_mail(
-                    
-                'Welcome to DocTech - Your Repair Companion',
-                f'''
-                Dear {username},
+            token = default_token_generator.make_token(user)
+            verification_url = f'https://pcairepair.vercel.app/verify-email/?email={user.email}&token={token}'
 
-                Welcome to DocTech! We are excited to have you on board as a member of our community dedicated to the repair of PCs, tablets, phones, and laptops.
+            email_subject = 'Verify your email address'
+            email_body = render_to_string('email_verification_template.html', {
+                'user': user,
+                'verification_url': verification_url,
+            })
 
-                As a member of DocTech, you now have access to a range of tools and resources designed to help you diagnose and repair a variety of tech issues. Whether you're experiencing software glitches, hardware failures, or need general tech support, our platform is here to assist you.
+            # Prepare email message
+            email_message = EmailMultiAlternatives(
+                subject=email_subject,
+                body='Please verify your email by clicking the link below.',
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[email],
+            )
+            email_message.attach_alternative(email_body, "text/html")  # Add HTML content
 
-                If you have any questions or need assistance, feel free to reach out to our support team at epheynyaga@gmail.com.
+            # Send the email
+            email_message.send(fail_silently=False)
 
-                We're thrilled to have you with us and look forward to supporting you on your repair journey!
+            return Response({'message': 'User registered successfully! Please verify your email.'}, status=status.HTTP_201_CREATED)
 
-                Best regards,
-                The DocTech Team
-                ''',
+        except Exception as e:
+            user.delete()  # Ensure user is not saved if email sending fails
+            return Response({'error': f'Failed to send verification email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class VerifyEmailView(APIView): 
+    def post(self, request):
+        email = request.data.get('email', '')
+        token = request.data.get('token', '')
+
+        try:
+            user = User.objects.get(email=email)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response('User not found', status=status.HTTP_404_NOT_FOUND)
+
+        if not default_token_generator.check_token(user, token):
+            return Response('Token is invalid or expired. Please request another confirmation email by signing in.', status=status.HTTP_400_BAD_REQUEST)
+
+        user.is_active = True
+        user.save()
+
+        # Send welcome email
+        try:
+            
+            login_url = f'https://pcairepair.vercel.app/auth/login'
+            email_subject = 'Welcome to DocTech!'
+            email_body = render_to_string('welcome_email_template.html', {
+                'user': user,
+                'login_url': login_url,
+            })
+
+            email_message = EmailMultiAlternatives(
+                email_subject,
+                email_body,
                 settings.DEFAULT_FROM_EMAIL,
-                [email],
-                fail_silently=False,  # Don't fail silently to catch errors
+                [user.email]
+            )
+            email_message.attach_alternative(email_body, "text/html")
+            email_message.send()
+
+            return Response('Email successfully confirmed', status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(f'Failed to send welcome email: {str(e)}', status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+# class SignupView(APIView):
+#     def post(self, request):
+#         username = request.data.get('username')
+#         email = request.data.get('email')
+#         password = request.data.get('password')
+
+#         # Check for required fields
+#         if not username or not email or not password:
+#             return Response({'error': 'Username, email, and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+#         # Check if username is already taken
+#         if User.objects.filter(username=username).exists():
+#             return Response({'error': 'Username is already taken'}, status=status.HTTP_400_BAD_REQUEST)
+
+#         # Check if email is already registered
+#         if User.objects.filter(email=email).exists():
+#             return Response({'error': 'Email is already registered'}, status=status.HTTP_400_BAD_REQUEST)
+#         user = User(username=username, email=email)
+#         user.set_password(password)
+#         try:
+#             try:
+#                 send_mail(
+                    
+#                     'Welcome to DocTech - Your Repair Companion',
+#                     f'''
+#                     Dear {username},
+
+#                     Welcome to DocTech! We are excited to have you on board as a member of our community dedicated to the repair of PCs, tablets, phones, and laptops.
+
+#                     As a member of DocTech, you now have access to a range of tools and resources designed to help you diagnose and repair a variety of tech issues. Whether you're experiencing software glitches, hardware failures, or need general tech support, our platform is here to assist you.
+
+#                     If you have any questions or need assistance, feel free to reach out to our support team at epheynyaga@gmail.com.
+
+#                     We're thrilled to have you with us and look forward to supporting you on your repair journey!
+
+#                     Best regards,
+#                     The DocTech Team
+#                     ''',
+#                     settings.DEFAULT_FROM_EMAIL,
+#                     [email],
+#                     fail_silently=False,  # Don't fail silently to catch errors
             
 
-                )
-            except Exception as e:
-                return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#                 )
+#             except Exception as e:
+#                 return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            # If email is sent successfully, save the user
+#             # If email is sent successfully, save the user
             
-            user.save()
+#             user.save()
 
-            return Response({'message': 'User registered successfully!'}, status=status.HTTP_201_CREATED)
+#             return Response({'message': 'User registered successfully!'}, status=status.HTTP_201_CREATED)
 
-        # except Exception as e:
-        #     # If email sending fails or any other error occurs, return an error response
-        #     return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#         except Exception as e:
+#             # If email sending fails or any other error occurs, return an error response
+#             return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        except IntegrityError:
-            return Response({'error': 'An error occurred while creating the user. Please try again.'}, status=status.HTTP_400_BAD_REQUEST)
+#         except IntegrityError:
+#             return Response({'error': 'An error occurred while creating the user. Please try again.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        except ValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+#         except ValidationError as e:
+#             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
@@ -425,17 +577,30 @@ class PasswordResetRequestView(APIView):
             token = default_token_generator.make_token(user)
             # Create reset link
             reset_link = f"https://pcairepair.vercel.app/auth/password-reset-confirm?token={token}&email={user.email}"
-            # Send the email
-            send_mail(
-                subject="Password Reset Request",
-                message=f"Click the following link to reset your password.Please note the link may Expire After some Time: {reset_link}",
-                from_email=settings.DEFAULT_FROM_EMAIL,  # Use the sender email from settings
-                recipient_list=[user.email],
-                fail_silently=False,  # Set to False for feedback on failures
+
+            # Render email content using HTML template
+            email_subject = "Password Reset Request"
+            email_body = render_to_string('password_reset_email.html', {
+                'user': user,
+                'reset_link': reset_link,
+            })
+
+            # Send the HTML email
+            email_message = EmailMultiAlternatives(
+                subject=email_subject,
+                body="Click the link below to reset your password.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[user.email],
             )
+            email_message.attach_alternative(email_body, "text/html")
+            email_message.send(fail_silently=False)
+
             return Response({'message': 'Password reset link has been sent to your email.'}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'error': 'User with this email does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
@@ -468,14 +633,37 @@ class ContactUsView(APIView):
             return Response({'error': 'Full name, email, and message are required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Send the email to the DEFAULT_FROM_EMAIL
-            send_mail(
-                subject=f"Contact Us Form Submission from {full_name}",
-                message=f"Full Name: {full_name}\nEmail: {email}\nMessage:\n{message}",
-                from_email=settings.DEFAULT_FROM_EMAIL,  # This will be the email sender
-                recipient_list=[settings.DEFAULT_FROM_EMAIL],  # The support/admin email
-                fail_silently=False,
+            # Send the email to the admin/support team
+            admin_subject = f"Contact Us Form Submission from {full_name}"
+            admin_message = render_to_string('admin_contact_email.html', {
+                'full_name': full_name,
+                'email': email,
+                'message': message,
+            })
+
+            admin_email = EmailMultiAlternatives(
+                subject=admin_subject,
+                body=f"Full Name: {full_name}\nEmail: {email}\nMessage:\n{message}",  # Fallback plain text
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[settings.DEFAULT_FROM_EMAIL],  # The support/admin email
             )
+            admin_email.attach_alternative(admin_message, "text/html")
+            admin_email.send(fail_silently=False)
+
+            # Send an acknowledgment email to the user
+            user_subject = "We Received Your Contact Request"
+            user_message = render_to_string('user_contact_acknowledgment.html', {
+                'full_name': full_name,
+            })
+
+            user_email = EmailMultiAlternatives(
+                subject=user_subject,
+                body="Thank you for contacting us. We've received your message and will get back to you soon.",  # Fallback plain text
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[email],  # The user's email
+            )
+            user_email.attach_alternative(user_message, "text/html")
+            user_email.send(fail_silently=False)
 
             return Response({'message': 'Your message has been sent successfully!'}, status=status.HTTP_200_OK)
 

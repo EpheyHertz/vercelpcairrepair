@@ -2,7 +2,10 @@ from rest_framework import serializers
 # from django.contrib.auth.models import User
 from rest_framework.validators import UniqueValidator
 from .models import UserProfile,Chat,ChatMessage,User
-
+from django.db import transaction
+from rest_framework.validators import UniqueValidator
+from django.core.mail import send_mail
+from django.core.exceptions import ValidationError
 class UserProfileSerializer(serializers.ModelSerializer):
     # Make the email read-only
     email = serializers.ReadOnlyField()
@@ -23,14 +26,34 @@ class SignupSerializer(serializers.ModelSerializer):
         fields = ('username', 'email', 'password')
 
     def create(self, validated_data):
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password']
-        )
-        return user
+        try:
+            # Wrap the user creation and email sending in an atomic transaction
+            with transaction.atomic():
+                # Step 1: Create the user
+                user = User.objects.create_user(
+                    username=validated_data['username'],
+                    email=validated_data['email'],
+                    password=validated_data['password']
+                )
 
+                # Step 2: Send the email (with fail_silently=False to raise errors)
+                subject = 'Welcome to DocTech!'
+                message = f"Hi {user.username},\n\nThank you for signing up at DocTech."
+                from_email = 'no-reply@doctech.com'
+                recipient_list = [user.email]
 
+                send_mail(subject, message, from_email, recipient_list, fail_silently=False)
+
+                # Return the created user if email was sent successfully
+                return user
+
+        except Exception as e:
+            # Rollback user creation and raise an error if email fails to send
+            raise ValidationError("Registration failed: Could not send welcome email.") from e
+
+        except Exception as e:
+            # Catch any other unexpected exceptions
+            raise ValidationError(f"Registration failed: {str(e)}")
 
 from django.contrib.auth import get_user_model, authenticate
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
