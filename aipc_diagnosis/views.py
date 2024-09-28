@@ -630,6 +630,7 @@ class PasswordResetConfirmView(APIView):
 
 class ContactUsView(APIView):
     permission_classes = [IsAuthenticated]
+
     def post(self, request):
         full_name = request.data.get('full_name')
         email = request.data.get('email')
@@ -657,9 +658,13 @@ class ContactUsView(APIView):
             admin_email.attach_alternative(admin_message, "text/html")
             admin_email.send(fail_silently=False)
 
+        except Exception as e:
+            return Response({'error': f'Failed to send message to admin: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
             # Send an acknowledgment email to the user
             user_subject = "We Received Your Contact Request"
-            user_message = render_to_string('user_contact_acknowledgment.html', {
+            user_message = render_to_string('user_contact_acknowledgement.html', {
                 'full_name': full_name,
             })
 
@@ -675,7 +680,7 @@ class ContactUsView(APIView):
             return Response({'message': 'Your message has been sent successfully!'}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            return Response({'error': f'Failed to send message: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': f'Failed to send acknowledgment email to user: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
 
