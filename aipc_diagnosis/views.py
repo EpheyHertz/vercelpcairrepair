@@ -669,3 +669,14 @@ class ContactUsView(APIView):
 
         except Exception as e:
             return Response({'error': f'Failed to send message: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+
+from django.contrib.auth import logout
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        logout(request)  # This will clear the session
+        return Response({'message': 'Successfully logged out.'}, status=status.HTTP_200_OK)
