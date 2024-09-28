@@ -133,7 +133,7 @@ class SignupView(APIView):
             # Prepare email message
             email_message = EmailMultiAlternatives(
                 subject=email_subject,
-                body='Please verify your email by clicking the link below.',
+                body=f'Please verify your email by clicking the link below.Click here {verification_url}',
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 to=[email],
             )
@@ -588,7 +588,7 @@ class PasswordResetRequestView(APIView):
             # Send the HTML email
             email_message = EmailMultiAlternatives(
                 subject=email_subject,
-                body="Click the link below to reset your password.",
+                body=f"Click the link below to reset your password. Click here {reset_link}",
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 to=[user.email],
             )
