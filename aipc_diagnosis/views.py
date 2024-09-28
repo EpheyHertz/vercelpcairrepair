@@ -99,95 +99,7 @@ class Welcome(APIView):
 # from django.contrib.sites.shortcuts import get_current_site
 
 
-class SignupView(APIView):
-    permission_classes = [AllowAny]
-    def post(self, request):
-        username = request.data.get('username')
-        email = request.data.get('email')
-        password = request.data.get('password')
 
-        # Check for required fields
-        if not username or not email or not password:
-            return Response({'error': 'Username, email, and password are required'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check if username or email is already taken
-        if User.objects.filter(username=username).exists():
-            return Response({'error': 'Username is already taken'}, status=status.HTTP_400_BAD_REQUEST)
-        if User.objects.filter(email=email).exists():
-            return Response({'error': 'Email is already registered'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Create the user (inactive until email is verified)
-        user = User(username=username, email=email, is_active=False)
-        user.set_password(password)
-        user.save()
-
-        # Send verification email
-        try:
-            token = default_token_generator.make_token(user)
-            verification_url = f'https://pcairepair.vercel.app/verify-email/?email={user.email}&token={token}'
-            print(verification_url)
-
-            email_subject = 'Verify your email address'
-            email_body = f'Hello {user.username},\n\n' \
-                         f'Thank you for registering with us! Please verify your email address by clicking the link below:\n\n' \
-                         f'{verification_url}\n\n' \
-                         f'If you didn’t request this, please ignore this email.\n\n' \
-                         f'Best regards,\nThe DocTech Team'
-
-            # Prepare email message
-            send_mail(
-                subject=email_subject,
-                message=email_body,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
-            )
-
-            return Response({'message': 'User registered successfully! Please verify your email.'}, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
-            user.delete()  # Ensure user is not saved if email sending fails
-            return Response({'error': f'Failed to send verification email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-class VerifyEmailView(APIView):
-    permission_classes = [AllowAny]
-    def post(self, request):
-        email = request.data.get('email', '')
-        token = request.data.get('token', '')
-
-        try:
-            user = User.objects.get(email=email)
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-            return Response('User not found', status=status.HTTP_404_NOT_FOUND)
-
-        if not default_token_generator.check_token(user, token):
-            return Response('Token is invalid or expired. Please request another confirmation email by signing in.', status=status.HTTP_400_BAD_REQUEST)
-
-        user.is_active = True
-        user.save()
-
-        # Send welcome email
-        try:
-            login_url = f'https://pcairepair.vercel.app/auth/login'
-            email_subject = 'Welcome to DocTech!'
-            email_body = f'Hello {user.username},\n\n' \
-                         f'Welcome to DocTech! We’re excited to have you on board. Click the link below to log in:\n\n' \
-                         f'{login_url}\n\n' \
-                         f'Best regards,\nThe DocTech Team'
-
-            send_mail(
-                subject=email_subject,
-                message=email_body,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
-            )
-
-            return Response('Email successfully confirmed', status=status.HTTP_200_OK)
-
-        except Exception as e:
-            return Response(f'Failed to send welcome email: {str(e)}', status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 # class SignupView(APIView):
 #     def post(self, request):
 #         username = request.data.get('username')
@@ -601,7 +513,100 @@ class PasswordResetRequestView(APIView):
 
         except User.DoesNotExist:
             return Response({'error': 'User with this email does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
+class SignupView(APIView):
+    permission_classes = [AllowAny]
+    def post(self, request):
+        username = request.data.get('username')
+        email = request.data.get('email')
+        password = request.data.get('password')
 
+        # Check for required fields
+        if not username or not email or not password:
+            return Response({'error': 'Username, email, and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if username or email is already taken
+        if User.objects.filter(username=username).exists():
+            return Response({'error': 'Username is already taken'}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(email=email).exists():
+            return Response({'error': 'Email is already registered'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create the user (inactive until email is verified)
+        user = User(username=username, email=email, is_active=False)
+        user.set_password(password)
+        user.save()
+
+        # Send verification email
+        try:
+            token = default_token_generator.make_token(user)
+            verification_url = f'https://pcairepair.vercel.app/verify-email/?email={user.email}&token={token}'
+            print(verification_url)
+
+            email_subject = 'Verify your email address'
+            email_body = f'Hello {user.username},\n\n' \
+                         f'Thank you for registering with us! Please verify your email address by clicking the link below:\n\n' \
+                         f'{verification_url}\n\n' \
+                         f'If you didn’t request this, please ignore this email.\n\n' \
+                         f'Best regards,\nThe DocTech Team'
+
+            # Prepare email message
+            send_mail(
+                subject=email_subject,
+                message=email_body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+
+            return Response({'message': 'User registered successfully! Please verify your email.'}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            user.delete()  # Ensure user is not saved if email sending fails
+            return Response({'error': f'Failed to send verification email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class VerifyEmailView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        token = request.data.get('token')
+        
+        print(f"Verifying user with email: {email} and token: {token}")  # Debugging line
+
+        try:
+            user = User.objects.get(email=email)
+            print(f"User found: {user.username}")  # Debugging line
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response('User not found', status=status.HTTP_404_NOT_FOUND)
+
+        if not default_token_generator.check_token(user, token):
+            print("Token is invalid or expired.")  # Debugging line
+            return Response('Token is invalid or expired. Please request another confirmation email by signing in.', status=status.HTTP_400_BAD_REQUEST)
+
+        user.is_active = True
+        user.save()
+
+        # Send welcome email
+        try:
+            login_url = f'https://pcairepair.vercel.app/auth/login'
+            email_subject = 'Welcome to DocTech!'
+            email_body = f'Hello {user.username},\n\n' \
+                         f'Welcome to DocTech! We’re excited to have you on board. Click the link below to log in:\n\n' \
+                         f'{login_url}\n\n' \
+                         f'Best regards,\nThe DocTech Team'
+
+            send_mail(
+                subject=email_subject,
+                message=email_body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+
+            return Response('Email successfully confirmed', status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(f'Failed to send welcome email: {str(e)}', status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
