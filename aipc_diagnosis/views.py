@@ -688,7 +688,7 @@ class ContactUsView(APIView):
 
 
 class TechNewsAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
     def get(self, request):
         api_key=settings.NEWS_API_KEY
         # Initialize NewsApiClient with your API key
