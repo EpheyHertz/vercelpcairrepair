@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import SignupView,Welcome,MyTokenObtainPairView,DiagnosisChatbotView,UserProfileView,UserChatsView,ChatMessageListCreateAPIView,PasswordResetRequestView,PasswordResetConfirmView,ContactUsView,ValidateTokenView,DeleteChatView,VerifyEmailView,LogoutView
+from .views import SignupView,Welcome,MyTokenObtainPairView,DiagnosisChatbotView,UserProfileView,UserChatsView,ChatMessageListCreateAPIView,PasswordResetRequestView,PasswordResetConfirmView,ContactUsView,ValidateTokenView,DeleteChatView,VerifyEmailView,LogoutView,TechNewsAPIView
 from rest_framework_simplejwt.views import TokenRefreshView
 urlpatterns = [
     path('', Welcome.as_view(), name='welcome'),
@@ -16,5 +16,6 @@ urlpatterns = [
     path('validate-token/', ValidateTokenView.as_view(), name='validate_token'),
     path('chats/delete/<int:chat_id>/', DeleteChatView.as_view(), name='delete_chat'),
     path('verify-email/', VerifyEmailView.as_view(), name='verify_email'),
+    path('tech-news/', TechNewsAPIView.as_view(), name='tech-news'),
     path('logout/', LogoutView.as_view(), name='logout'),
 ]

@@ -20,9 +20,12 @@ from .serializers import UserProfileSerializer
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.db import IntegrityError
+from newsapi import NewsApiClient
 import io
+import requests
 import os
 import tempfile
+from django.contrib.auth import logout
 import smtplib
 from .models import Chat, ChatMessage, Diagnosis
 from rest_framework.exceptions import ValidationError
@@ -684,7 +687,42 @@ class ContactUsView(APIView):
         
 
 
-from django.contrib.auth import logout
+class TechNewsAPIView(APIView):
+    def get(self, request):
+        api_key=settings.NEWS_API_KEY
+        # Initialize NewsApiClient with your API key
+        newsapi = NewsApiClient(api_key=api_key)
+
+        # Fetch top headlines in the technology category
+        try:
+            top_headlines = newsapi.get_top_headlines(
+                category='technology',
+                language='en',
+                country='us'
+            )
+            # print(top_headlines)
+            articles = top_headlines.get('articles', [])
+            # print(articles)
+            
+
+            if not articles:
+                return Response({'message': 'No valid articles found.'}, status=status.HTTP_204_NO_CONTENT)
+
+            return Response(articles, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    # def filter_removed_articles(self, articles):
+    #     # Filter articles that contain "[Removed]" in title, description, or content
+    #     return [
+    #         article for article in articles
+    #         if not any("[Removed]" in (article.get('title', ''), 
+    #                                    article.get('description', ''), 
+    #                                    article.get('content', '')))
+    #     ]
+
+
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]

@@ -191,6 +191,7 @@ STATICFILES_DIRS = [  # Additional locations for static files
 ]
 
 load_dotenv()
+NEWS_API_KEY=os.getenv('news_api_key')
 AAI_APIKEY = os.getenv('AAI_API_KEY')
 ASSEMBLYAI_API_KEY = os.getenv('AAI_API_KEY')
 GEMINI_AI_API_KEY = os.getenv('GOOGLE_APIKEY')
