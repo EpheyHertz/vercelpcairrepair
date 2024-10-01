@@ -16,6 +16,9 @@ from django.core.mail import send_mail
 from django.contrib.auth.tokens import default_token_generator
 # from django.contrib.auth.models import User
 from .models import UserProfile,User
+import http.client
+import urllib.parse
+import json
 from .serializers import UserProfileSerializer
 from django.shortcuts import get_object_or_404
 from django.conf import settings
@@ -685,34 +688,72 @@ class ContactUsView(APIView):
         except Exception as e:
             return Response({'error': f'Failed to send acknowledgment email to user: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-
-
 class TechNewsAPIView(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]  # Uncomment if you want authentication
+    
     def get(self, request):
-        api_key=settings.NEWS_API_KEY
-        # Initialize NewsApiClient with your API key
-        newsapi = NewsApiClient(api_key=api_key)
-
-        # Fetch top headlines in the technology category
+        # Prepare the request parameters
+        api_token = settings.NEWS_API_KEY # Replace with your token if stored in settings
+        params = urllib.parse.urlencode({
+            'api_token': api_token,
+            'categories': 'tech',
+            'language':'en',
+            'limit': 50,
+        })
+        
         try:
-            top_headlines = newsapi.get_top_headlines(
-                category='technology',
-                language='en',
-                country='us'
-            )
-            # print(top_headlines)
-            articles = top_headlines.get('articles', [])
-            # print(articles)
+            # Establish the connection to the News API
+            conn = http.client.HTTPSConnection('api.thenewsapi.com')
+            conn.request('GET', f'/v1/news/all?{params}')
+
+            # Get the response from the API
+            res = conn.getresponse()
+            data = res.read()
+            
+            # Decode and parse the response
+            decoded_data = data.decode('utf-8')
+            news_data = json.loads(decoded_data)  # Convert the string to a dictionary
+
+            # Extract articles or handle empty results
+            articles = news_data.get('data', [])
+            print(articles)
+            
+            if not articles:
+                return Response({'message': 'No articles found.'}, status=status.HTTP_204_NO_CONTENT)
+            
+            # Return the articles in the response
+            return Response(articles, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            # Handle any errors and return an appropriate response
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+# class TechNewsAPIView(APIView):
+#     # permission_classes = [IsAuthenticated]
+#     def get(self, request):
+#         api_key=settings.NEWS_API_KEY
+#         # Initialize NewsApiClient with your API key
+#         newsapi = NewsApiClient(api_key=api_key)
+
+#         # Fetch top headlines in the technology category
+#         try:
+#             top_headlines = newsapi.get_top_headlines(
+#                 category='technology',
+#                 language='en',
+#                 country='us'
+#             )
+#             # print(top_headlines)
+#             articles = top_headlines.get('articles', [])
+#             # print(articles)
             
 
-            if not articles:
-                return Response({'message': 'No valid articles found.'}, status=status.HTTP_204_NO_CONTENT)
+#             if not articles:
+#                 return Response({'message': 'No valid articles found.'}, status=status.HTTP_204_NO_CONTENT)
 
-            return Response(articles, status=status.HTTP_200_OK)
+#             return Response(articles, status=status.HTTP_200_OK)
 
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+#         except Exception as e:
+#             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     # def filter_removed_articles(self, articles):
     #     # Filter articles that contain "[Removed]" in title, description, or content
