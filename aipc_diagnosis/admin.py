@@ -1,6 +1,7 @@
 from django.contrib import admin
-from .models import UserProfile, Chat, ChatMessage, Diagnosis,User
+from .models import UserProfile, Chat, ChatMessage, Diagnosis,User,NewsArticle,NewsSource
 admin.site.register(User)
+admin.site.register(NewsSource)
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'fullname', 'profile_picture')
@@ -26,3 +27,6 @@ class DiagnosisAdmin(admin.ModelAdmin):
     list_filter = ('created_at',)
 
 # Register your models here.
+
+# Register the NewsArticle model with the custom admin
+admin.site.register(NewsArticle)

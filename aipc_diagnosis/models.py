@@ -69,3 +69,23 @@ class Diagnosis(models.Model):
 
     def __str__(self):
         return f"Diagnosis {self.id} for {self.user.username}"
+    
+class NewsSource(models.Model):
+    source_id = models.CharField(max_length=255, null=True, blank=True)
+    name = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.name
+
+class NewsArticle(models.Model):
+    source = models.ForeignKey(NewsSource, on_delete=models.CASCADE, related_name='articles')
+    author = models.CharField(max_length=255, null=True, blank=True)
+    title = models.CharField(max_length=500)
+    description = models.TextField(null=True, blank=True)
+    url = models.URLField()
+    urlToImage = models.URLField(max_length=1000,null=True, blank=True)
+    published_at = models.DateTimeField()
+    content = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return self.title

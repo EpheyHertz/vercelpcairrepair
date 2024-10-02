@@ -34,6 +34,8 @@ from .models import Chat, ChatMessage, Diagnosis
 from rest_framework.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
+from datetime import datetime
+from .models import NewsArticle,NewsSource
 # from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.contrib.auth.tokens import default_token_generator
@@ -687,20 +689,21 @@ class ContactUsView(APIView):
 
         except Exception as e:
             return Response({'error': f'Failed to send acknowledgment email to user: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+from django.utils import timezone
+import pytz        
 class TechNewsAPIView(APIView):
-    permission_classes = [IsAuthenticated]  # Uncomment if you want authentication
-    
+    # permission_classes = [IsAuthenticated]  # Uncomment if you want authentication
+
     def get(self, request):
         # Prepare the request parameters
-        api_token = settings.NEWS_API_KEY # Replace with your token if stored in settings
+        api_token = settings.NEWS_API2_KEY  # Replace with your token if stored in settings
         params = urllib.parse.urlencode({
             'api_token': api_token,
-            'categories': 'tech',
-            'language':'en',
+            'categories': 'tech,business',
+            'language': 'en',
             'limit': 50,
         })
-        
+
         try:
             # Establish the connection to the News API
             conn = http.client.HTTPSConnection('api.thenewsapi.com')
@@ -709,30 +712,46 @@ class TechNewsAPIView(APIView):
             # Get the response from the API
             res = conn.getresponse()
             data = res.read()
-            
+
             # Decode and parse the response
             decoded_data = data.decode('utf-8')
             news_data = json.loads(decoded_data)  # Convert the string to a dictionary
 
-            # Extract articles or handle empty results
-            articles = news_data.get('data', [])
-            print(articles)
-            
-            if not articles:
+            # Extract articles from API response
+            api_articles = news_data.get('data', [])
+            print(api_articles)
+
+            # Fetch saved articles from the database
+            db_articles = list(NewsArticle.objects.values(
+                'source__name',  # Adjust for ForeignKey relation to NewsSource
+                'author',
+                'title',
+                'description',
+                'url',
+                'urlToImage',  # Updated to match the field name in your model
+                'published_at',
+                'content'
+            ))
+
+            # If no articles are found in the API or the DB, return an appropriate response
+            if not api_articles and not db_articles:
                 return Response({'message': 'No articles found.'}, status=status.HTTP_204_NO_CONTENT)
-            
-            # Return the articles in the response
-            return Response(articles, status=status.HTTP_200_OK)
-        
+
+            # Combine the fetched articles (API + DB)
+            combined_articles = api_articles + db_articles
+
+            # Return the combined articles in the response
+            return Response(combined_articles, status=status.HTTP_200_OK)
+
         except Exception as e:
             # Handle any errors and return an appropriate response
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 # class TechNewsAPIView(APIView):
 #     # permission_classes = [IsAuthenticated]
+
 #     def get(self, request):
-#         api_key=settings.NEWS_API_KEY
-#         # Initialize NewsApiClient with your API key
+#         api_key = settings.NEWS_API_KEY
 #         newsapi = NewsApiClient(api_key=api_key)
 
 #         # Fetch top headlines in the technology category
@@ -742,29 +761,72 @@ class TechNewsAPIView(APIView):
 #                 language='en',
 #                 country='us'
 #             )
-#             # print(top_headlines)
 #             articles = top_headlines.get('articles', [])
-#             # print(articles)
+#             print(articles)
             
-
 #             if not articles:
 #                 return Response({'message': 'No valid articles found.'}, status=status.HTTP_204_NO_CONTENT)
+
+#             # Filter articles if necessary
+#             # articles = self.filter_removed_articles(articles)
+
+#             # Save articles to the database
+#             self.save_articles(articles)
 
 #             return Response(articles, status=status.HTTP_200_OK)
 
 #         except Exception as e:
 #             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    # def filter_removed_articles(self, articles):
-    #     # Filter articles that contain "[Removed]" in title, description, or content
-    #     return [
-    #         article for article in articles
-    #         if not any("[Removed]" in (article.get('title', ''), 
-    #                                    article.get('description', ''), 
-    #                                    article.get('content', '')))
-    #     ]
+#     def filter_removed_articles(self, articles):
+#         # Filter articles that contain "[Removed]" in title, description, or content
+#         return [
+#             article for article in articles
+#             if not any("[Removed]" in (article.get('title', ''), 
+#                                        article.get('description', ''), 
+#                                        article.get('content', '')))
+#         ]
 
+#     def save_articles(self, articles):
+#       for article in articles:
+#         # Extract and format the fields from the API response
+#         source_data = article.get('source', {})
+#         source_name = source_data.get('name', None)
+#         source_id = source_data.get('id', None)
 
+#         author = article.get('author', None)
+#         title = article.get('title', None)
+#         description = article.get('description', None)
+#         url = article.get('url', None)
+#         url_to_image = article.get('urlToImage', None)
+#         published_at = article.get('publishedAt', None)
+#         content = article.get('content', None)
+
+#         # Convert published_at to a timezone-aware datetime object if it's available
+#         if published_at and isinstance(published_at, str):
+#             naive_dt = datetime.strptime(published_at, '%Y-%m-%dT%H:%M:%SZ')
+#             aware_dt = timezone.make_aware(naive_dt, timezone=pytz.UTC)
+#             published_at = aware_dt
+
+#         # Handle the source - either create or get the existing source
+#         source, created = NewsSource.objects.get_or_create(
+#             name=source_name,
+#             defaults={'source_id': source_id}
+#         )
+
+#         # Save each article to the database, preventing duplicates using 'title'
+#         NewsArticle.objects.get_or_create(
+#             title=title,
+#             defaults={
+#                 'source': source,
+#                 'author': author,
+#                 'description': description,
+#                 'url': url,
+#                 'urlToImage': url_to_image,
+#                 'published_at': published_at,
+#                 'content': content,
+#             }
+#         )
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
