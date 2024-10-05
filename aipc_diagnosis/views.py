@@ -19,6 +19,8 @@ from .models import UserProfile,User
 import http.client
 import urllib.parse
 import json
+from django.utils import timezone
+import pytz    
 from .serializers import UserProfileSerializer
 from django.shortcuts import get_object_or_404
 from django.conf import settings
@@ -54,123 +56,6 @@ class Welcome(APIView):
         return Response({"message":"Welcome to pc diagnosis apis"})
     
 
-# class SignupView(APIView):
-#     def post(self, request):
-#         # Step 1: Use the SignupSerializer for validation
-#         serializer = SignupSerializer(data=request.data)
-
-#         if serializer.is_valid():
-#             # Step 2: Create the user using validated data
-#             try:
-#                 user = serializer.save()
-
-#                 # Step 3: Attempt to send the welcome email
-#                 try:
-#                     send_mail(
-#                         'Welcome to DocTech - Your Repair Companion',
-#                         f'''
-#                         Dear {user.username},
-
-#                         Welcome to DocTech! We are excited to have you on board as a member of our community dedicated to the repair of PCs, tablets, phones, and laptops.
-
-#                         As a member of DocTech, you now have access to a range of tools and resources designed to help you diagnose and repair a variety of tech issues. Whether you're experiencing software glitches, hardware failures, or need general tech support, our platform is here to assist you.
-
-#                         If you have any questions or need assistance, feel free to reach out to our support team at epheynyaga@gmail.com.
-
-#                         We're thrilled to have you with us and look forward to supporting you on your repair journey!
-
-#                         Best regards,
-#                         The DocTech Team
-#                         ''',
-#                         settings.DEFAULT_FROM_EMAIL,
-#                         [user.email],
-#                         fail_silently=False,  # Fail loudly to catch any SMTP errors
-#                     )
-#                 except Exception as e:
-#                     # Rollback user creation if email fails
-#                     user.delete()  # Remove the user if the email wasn't sent successfully
-#                     return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-#                 # Step 4: Return success response if everything works
-#                 return Response({'message': 'User registered successfully!'}, status=status.HTTP_201_CREATED)
-
-#             except Exception as e:
-#                 return Response({'error': f'Error during registration: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-#         # If serializer is not valid, return the errors
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-# from django.urls import reverse
-# from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-# from django.utils.encoding import force_bytes
-# from .utils import email_verification_token  # Import the token generator
-# from django.contrib.sites.shortcuts import get_current_site
-
-
-
-# class SignupView(APIView):
-#     def post(self, request):
-#         username = request.data.get('username')
-#         email = request.data.get('email')
-#         password = request.data.get('password')
-
-#         # Check for required fields
-#         if not username or not email or not password:
-#             return Response({'error': 'Username, email, and password are required'}, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Check if username is already taken
-#         if User.objects.filter(username=username).exists():
-#             return Response({'error': 'Username is already taken'}, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Check if email is already registered
-#         if User.objects.filter(email=email).exists():
-#             return Response({'error': 'Email is already registered'}, status=status.HTTP_400_BAD_REQUEST)
-#         user = User(username=username, email=email)
-#         user.set_password(password)
-#         try:
-#             try:
-#                 send_mail(
-                    
-#                     'Welcome to DocTech - Your Repair Companion',
-#                     f'''
-#                     Dear {username},
-
-#                     Welcome to DocTech! We are excited to have you on board as a member of our community dedicated to the repair of PCs, tablets, phones, and laptops.
-
-#                     As a member of DocTech, you now have access to a range of tools and resources designed to help you diagnose and repair a variety of tech issues. Whether you're experiencing software glitches, hardware failures, or need general tech support, our platform is here to assist you.
-
-#                     If you have any questions or need assistance, feel free to reach out to our support team at epheynyaga@gmail.com.
-
-#                     We're thrilled to have you with us and look forward to supporting you on your repair journey!
-
-#                     Best regards,
-#                     The DocTech Team
-#                     ''',
-#                     settings.DEFAULT_FROM_EMAIL,
-#                     [email],
-#                     fail_silently=False,  # Don't fail silently to catch errors
-            
-
-#                 )
-#             except Exception as e:
-#                 return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-#             # If email is sent successfully, save the user
-            
-#             user.save()
-
-#             return Response({'message': 'User registered successfully!'}, status=status.HTTP_201_CREATED)
-
-#         except Exception as e:
-#             # If email sending fails or any other error occurs, return an error response
-#             return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-#         except IntegrityError:
-#             return Response({'error': 'An error occurred while creating the user. Please try again.'}, status=status.HTTP_400_BAD_REQUEST)
-
-#         except ValidationError as e:
-#             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        
 
 
 class MyTokenObtainPairView(TokenObtainPairView):
@@ -233,43 +118,7 @@ class DeleteChatView(APIView):
         
         return Response({'detail': 'Chat deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
 
-# class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
-#     @classmethod
-#     def validate(cls, attrs):
-#         email = attrs.get('username')
-#         password = attrs.get('password')
 
-#         # Retrieve user by email
-#         try:
-#             user = User.objects.get(email=email)
-#         except User.DoesNotExist:
-#             raise serializers.ValidationError('Invalid email or password')
-
-#         # Authenticate the user using username and password
-#         user = authenticate(username=user.username, password=password)
-
-#         if user is None:
-#             raise serializers.ValidationError('Invalid email or password')
-
-#         # Get the token using the parent class method
-#         token = cls.get_token(user)
-
-#         # Return token data
-#         return {
-#             'refresh': str(token),
-#             'access': str(token.access_token),
-#         }
-
-#     @classmethod
-#     def get_token(cls, user):
-#         token = super().get_token(user)
-
-#         # Add custom claims
-#         token['username'] = user.username
-#         token['email'] = user.email
-#         # token['role'] = user.role  # Make sure you have a role field in your User model
-
-#         return token
 class ChatMessageListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = ChatMessageSerializer
     permission_classes = [IsAuthenticated]  # Adjust permissions as needed
@@ -689,144 +538,173 @@ class ContactUsView(APIView):
 
         except Exception as e:
             return Response({'error': f'Failed to send acknowledgment email to user: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-from django.utils import timezone
-import pytz        
+    
 class TechNewsAPIView(APIView):
-    # permission_classes = [IsAuthenticated]  # Uncomment if you want authentication
-
+    permission_classes=[IsAuthenticated]
     def get(self, request):
-        # Prepare the request parameters
-        api_token = settings.NEWS_API2_KEY  # Replace with your token if stored in settings
+        # Get pagination params from request
+        page = int(request.GET.get('page', 1))  # Default to page 1
+        limit = int(request.GET.get('limit', 50))  # Default to 50 articles per page
+        offset = (page - 1) * limit
+
+        # Prepare API request parameters
+        api_token = settings.NEWS_API2_KEY
         params = urllib.parse.urlencode({
             'api_token': api_token,
             'categories': 'tech,business',
             'language': 'en',
-            'limit': 50,
+            'limit': limit,
+            'page': page,
         })
 
         try:
-            # Establish the connection to the News API
+            # Fetch articles from the external API
             conn = http.client.HTTPSConnection('api.thenewsapi.com')
             conn.request('GET', f'/v1/news/all?{params}')
-
-            # Get the response from the API
             res = conn.getresponse()
             data = res.read()
 
-            # Decode and parse the response
             decoded_data = data.decode('utf-8')
-            news_data = json.loads(decoded_data)  # Convert the string to a dictionary
-
-            # Extract articles from API response
+            news_data = json.loads(decoded_data)
             api_articles = news_data.get('data', [])
-            print(api_articles)
 
-            # Fetch saved articles from the database
-            db_articles = list(NewsArticle.objects.values(
-                'source__name',  # Adjust for ForeignKey relation to NewsSource
+            # Fetch articles from the database
+            db_articles = list(NewsArticle.objects.all().values(
+                'source__name',
                 'author',
                 'title',
                 'description',
                 'url',
-                'urlToImage',  # Updated to match the field name in your model
+                'urlToImage',
                 'published_at',
                 'content'
-            ))
+            )[offset:offset+limit])
 
-            # If no articles are found in the API or the DB, return an appropriate response
-            if not api_articles and not db_articles:
-                return Response({'message': 'No articles found.'}, status=status.HTTP_204_NO_CONTENT)
-
-            # Combine the fetched articles (API + DB)
+            # Combine API articles and DB articles
             combined_articles = api_articles + db_articles
 
-            # Return the combined articles in the response
-            return Response(combined_articles, status=status.HTTP_200_OK)
+            # Pagination handling
+            total_articles = len(api_articles) + NewsArticle.objects.count()  # Total count from API and DB
+            total_pages = (total_articles // limit) + (1 if total_articles % limit else 0)
+            has_next = page < total_pages
+
+            return Response({
+                'page': page,
+                'total_pages': total_pages,
+                'has_next': has_next,
+                'articles': combined_articles,
+            }, status=status.HTTP_200_OK)
 
         except Exception as e:
-            # Handle any errors and return an appropriate response
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-# class TechNewsAPIView(APIView):
-#     # permission_classes = [IsAuthenticated]
 
-#     def get(self, request):
-#         api_key = settings.NEWS_API_KEY
-#         newsapi = NewsApiClient(api_key=api_key)
+class TechNewsAPIViewLocalHost(APIView):
+    # permission_classes = [IsAuthenticated]
 
-#         # Fetch top headlines in the technology category
-#         try:
-#             top_headlines = newsapi.get_top_headlines(
-#                 category='technology',
-#                 language='en',
-#                 country='us'
-#             )
-#             articles = top_headlines.get('articles', [])
-#             print(articles)
+    def get(self, request):
+        api_key = settings.NEWS_API_KEY
+        newsapi = NewsApiClient(api_key=api_key)
+
+        # Fetch top headlines in the technology category
+        try:
+            tech_headlines = newsapi.get_everything(
+               q='technology',
+                language='en',
+                sort_by='publishedAt'
+            )
+            coding_news = newsapi.get_everything(
+                q='programming',
+                language='en',
+                sort_by='relevancy'  # You can also use 'publishedAt' to get the latest news
+            )
             
-#             if not articles:
-#                 return Response({'message': 'No valid articles found.'}, status=status.HTTP_204_NO_CONTENT)
+            # coding_headlines = newsapi.get_everything(
+            #     category='technology',
+            #     language='en',
+            #     country='us'
+            # )
+            
+            # business_headlines =newsapi.get_everything(
+            #     q='business',
+            #     language='en',
+            #     sort_by='relevancy'
+            # )
 
-#             # Filter articles if necessary
-#             # articles = self.filter_removed_articles(articles)
+            # Extract articles from both responses
+            tech_articles = tech_headlines.get('articles', [])
+            coding_articles = coding_news.get('articles', [])
+            #business_articles = business_headlines.get('articles', [])
 
-#             # Save articles to the database
-#             self.save_articles(articles)
+            # Combine the articles
+            articles= tech_articles + coding_articles 
+            # articles = top_headlines.get('articles', [])
+            print(articles)
+            
+            if not articles:
+                return Response({'message': 'No valid articles found.'}, status=status.HTTP_204_NO_CONTENT)
 
-#             return Response(articles, status=status.HTTP_200_OK)
+            # Filter articles if necessary
+            # articles = self.filter_removed_articles(articles)
 
-#         except Exception as e:
-#             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            # Save articles to the database
+            self.save_articles(articles)
 
-#     def filter_removed_articles(self, articles):
-#         # Filter articles that contain "[Removed]" in title, description, or content
-#         return [
-#             article for article in articles
-#             if not any("[Removed]" in (article.get('title', ''), 
-#                                        article.get('description', ''), 
-#                                        article.get('content', '')))
-#         ]
+            return Response(articles, status=status.HTTP_200_OK)
 
-#     def save_articles(self, articles):
-#       for article in articles:
-#         # Extract and format the fields from the API response
-#         source_data = article.get('source', {})
-#         source_name = source_data.get('name', None)
-#         source_id = source_data.get('id', None)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-#         author = article.get('author', None)
-#         title = article.get('title', None)
-#         description = article.get('description', None)
-#         url = article.get('url', None)
-#         url_to_image = article.get('urlToImage', None)
-#         published_at = article.get('publishedAt', None)
-#         content = article.get('content', None)
+    def filter_removed_articles(self, articles):
+        # Filter articles that contain "[Removed]" in title, description, or content
+        return [
+            article for article in articles
+            if not any("[Removed]" in (article.get('title', ''), 
+                                       article.get('description', ''), 
+                                       article.get('content', '')))
+        ]
 
-#         # Convert published_at to a timezone-aware datetime object if it's available
-#         if published_at and isinstance(published_at, str):
-#             naive_dt = datetime.strptime(published_at, '%Y-%m-%dT%H:%M:%SZ')
-#             aware_dt = timezone.make_aware(naive_dt, timezone=pytz.UTC)
-#             published_at = aware_dt
+    def save_articles(self, articles):
+     for article in articles:
+        # Extract and format the fields from the API response
+        source_data = article.get('source', {})
+        source_name = source_data.get('name', None)
+        source_id = source_data.get('id', None)
 
-#         # Handle the source - either create or get the existing source
-#         source, created = NewsSource.objects.get_or_create(
-#             name=source_name,
-#             defaults={'source_id': source_id}
-#         )
+        author = article.get('author', None)
+        title = article.get('title', None)
+        description = article.get('description', None)
+        url = article.get('url', None)
+        url_to_image = article.get('urlToImage', None)
+        published_at = article.get('publishedAt', None)
+        content = article.get('content', None)
 
-#         # Save each article to the database, preventing duplicates using 'title'
-#         NewsArticle.objects.get_or_create(
-#             title=title,
-#             defaults={
-#                 'source': source,
-#                 'author': author,
-#                 'description': description,
-#                 'url': url,
-#                 'urlToImage': url_to_image,
-#                 'published_at': published_at,
-#                 'content': content,
-#             }
-#         )
+        # Convert published_at to a timezone-aware datetime object if it's available
+        if published_at and isinstance(published_at, str):
+            naive_dt = datetime.strptime(published_at, '%Y-%m-%dT%H:%M:%SZ')
+            aware_dt = timezone.make_aware(naive_dt, timezone=pytz.UTC)
+            published_at = aware_dt
+
+        # Handle the source - either create or get the existing source
+        source, created = NewsSource.objects.get_or_create(
+            name=source_name,
+            defaults={'source_id': source_id}
+        )
+
+        # Save each article to the database, preventing duplicates using 'title'
+        NewsArticle.objects.get_or_create(
+            title=title,
+            defaults={
+                'source': source,
+                'author': author,
+                'description': description,
+                'url': url,
+                'urlToImage': url_to_image,  # Consistent field naming
+                'published_at': published_at,
+                'content': content,
+            }
+        )
+
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
