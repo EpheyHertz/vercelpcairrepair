@@ -6,6 +6,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.conf import settings
+from django.utils import timezone
 class User(AbstractUser):
     has_donated = models.BooleanField(default=False)
 
@@ -89,3 +90,63 @@ class NewsArticle(models.Model):
 
     def __str__(self):
         return self.title
+    
+class Category(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField()
+
+    def __str__(self):
+        return self.name
+
+class Question(models.Model):
+    category = models.ForeignKey(Category, related_name="questions", on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    image_url = models.URLField(max_length=500, blank=True, null=True)  # URL for the uploaded image
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+
+class Answer(models.Model):
+    question = models.ForeignKey(Question, related_name="answers", on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    content = models.TextField()
+    image_url = models.URLField(max_length=500, blank=True, null=True)  # URL for the uploaded image
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Answer by {self.user.username}"
+    
+class LikeDislike(models.Model):
+    LIKE = 1
+    DISLIKE = -1
+    VOTE_CHOICES = ((LIKE, 'Like'), (DISLIKE, 'Dislike'))
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    question = models.ForeignKey(Question, null=True, blank=True, related_name='votes', on_delete=models.CASCADE)
+    answer = models.ForeignKey(Answer, null=True, blank=True, related_name='votes', on_delete=models.CASCADE)
+    vote = models.SmallIntegerField(choices=VOTE_CHOICES)
+
+    class Meta:
+        unique_together = ('user', 'question', 'answer')  # Prevent duplicate votes
+
+# Comments on answers or questions
+class Comment(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    question = models.ForeignKey(Question, null=True, blank=True, related_name="comments", on_delete=models.CASCADE)
+    answer = models.ForeignKey(Answer, null=True, blank=True, related_name="comments", on_delete=models.CASCADE)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+# Followers for a user
+class Follower(models.Model):
+    follower = models.ForeignKey(User, related_name="following", on_delete=models.CASCADE)
+    followed = models.ForeignKey(User, related_name="followers", on_delete=models.CASCADE)
+    followed_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ('follower', 'followed')  # Prevent duplicate followings

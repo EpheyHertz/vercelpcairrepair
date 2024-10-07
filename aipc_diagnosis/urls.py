@@ -1,6 +1,15 @@
 from django.urls import path
 from .views import SignupView,Welcome,MyTokenObtainPairView,DiagnosisChatbotView,UserProfileView,UserChatsView,ChatMessageListCreateAPIView,PasswordResetRequestView,PasswordResetConfirmView,ContactUsView,ValidateTokenView,DeleteChatView,VerifyEmailView,LogoutView,TechNewsAPIView,TechNewsAPIViewLocalHost
 from rest_framework_simplejwt.views import TokenRefreshView
+from .views import (
+    QuestionAPIView,
+    AnswerAPIView,
+    LikeDislikeAPIView,
+    CommentAPIView,
+    SearchAPIView,
+    FollowUserAPIView,
+    UserProfileAPIView
+)
 urlpatterns = [
     path('', Welcome.as_view(), name='welcome'),
     path('signup/', SignupView.as_view(), name='signup'),
@@ -18,5 +27,26 @@ urlpatterns = [
     path('verify-email/', VerifyEmailView.as_view(), name='verify_email'),
     path('tech-news/', TechNewsAPIView.as_view(), name='tech-news'),
     path('localhosttech-news/', TechNewsAPIViewLocalHost.as_view(), name='localhosttech-news'),
+     # Questions
+    path('questions/', QuestionAPIView.as_view(), name='question-list-create'),  # List and create questions
+    path('questions/<int:pk>/', QuestionAPIView.as_view(), name='question-detail'),  # Retrieve, update, delete a specific question
+
+    # Answers
+    path('answers/', AnswerAPIView.as_view(), name='answer-list-create'),  # List and create answers
+    path('answers/<int:pk>/', AnswerAPIView.as_view(), name='answer-detail'),  # Retrieve, update, delete a specific answer
+
+    # Like/Dislike for both questions and answers
+    path('like-dislike/', LikeDislikeAPIView.as_view(), name='like-dislike'),
+
+    # Comments on questions or answers
+    path('comments/', CommentAPIView.as_view(), name='comment-list-create'),  # List and create comments
+
+    # Search functionality for questions and answers
+    path('search/', SearchAPIView.as_view(), name='search'),
+
+    # Follow/Unfollow users
+    path('follow/<int:pk>/', FollowUserAPIView.as_view(), name='follow-user'),
+    path('unfollow/<int:pk>/', FollowUserAPIView.as_view(), name='unfollow-user'),
+    path('users/<int:pk>/profile/', UserProfileAPIView.as_view(), name='user-profile'),
     path('logout/', LogoutView.as_view(), name='logout'),
 ]

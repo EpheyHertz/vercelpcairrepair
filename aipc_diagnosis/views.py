@@ -1,10 +1,10 @@
-from rest_framework import status
+from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
 from .serializers import SignupSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import MyTokenObtainPairSerializer,ChatSerializer,ChatMessageSerializer
+from .serializers import MyTokenObtainPairSerializer,ChatSerializer,ChatMessageSerializer,QuestionSerializer, AnswerSerializer, LikeDislikeSerializer, CommentSerializer
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -32,7 +32,8 @@ import os
 import tempfile
 from django.contrib.auth import logout
 import smtplib
-from .models import Chat, ChatMessage, Diagnosis
+from django.db.models import Q
+from .models import Chat, ChatMessage, Diagnosis,Question, Answer, LikeDislike, Comment
 from rest_framework.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
@@ -569,16 +570,21 @@ class TechNewsAPIView(APIView):
             api_articles = news_data.get('data', [])
 
             # Fetch articles from the database
-            db_articles = list(NewsArticle.objects.all().values(
-                'source__name',
-                'author',
-                'title',
-                'description',
-                'url',
-                'urlToImage',
-                'published_at',
-                'content'
-            )[offset:offset+limit])
+            db_articles = list(
+                    NewsArticle.objects.all()
+                    .order_by('-published_at')  # Sort by latest published date (descending order)
+                    .values(
+                        'source__name',
+                        'author',
+                        'title',
+                        'description',
+                        'url',
+                        'urlToImage',
+                        'published_at',
+                        'content'
+                    )[offset:offset+limit]  # Pagination using offset and limit
+                )
+
 
             # Combine API articles and DB articles
             combined_articles = api_articles + db_articles
@@ -705,6 +711,212 @@ class TechNewsAPIViewLocalHost(APIView):
             }
         )
 
+
+class UserProfileAPIView(APIView):
+    def get(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)  # Get user by primary key
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Serialize user profile
+        profile_serializer =UserProfileSerializer(user.profile)
+        
+        # Get user's questions and answers
+        questions = Question.objects.filter(user=user)
+        answers = Answer.objects.filter(user=user)
+
+        # Serialize questions and answers
+        question_serializer = QuestionSerializer(questions, many=True)
+        answer_serializer = AnswerSerializer(answers, many=True)
+
+        return Response({
+            'profile': profile_serializer.data,
+            'questions': question_serializer.data,
+            'answers': answer_serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class QuestionAPIView(APIView):
+    permission_classes=[AllowAny]
+    def get(self, request):
+        questions = Question.objects.all().order_by('-created_at')
+        serializer = QuestionSerializer(questions, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = QuestionSerializer(data=request.data)
+        if serializer.is_valid():
+            image = request.FILES.get('image')
+            image_url = None
+            if image:
+                image_url = upload_image_to_backblaze(image)
+            serializer.save(user=request.user, image_url=image_url)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request, pk):
+        try:
+            question = Question.objects.get(pk=pk)
+        except Question.DoesNotExist:
+            return Response({"error": "Question not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = QuestionSerializer(question, data=request.data, partial=True)
+        if serializer.is_valid():
+            image = request.FILES.get('image')
+            image_url = question.image_url
+            if image:
+                image_url = upload_image_to_backblaze(image)
+            serializer.save(image_url=image_url)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class AnswerAPIView(APIView):
+    def get(self, request):
+        answers = Answer.objects.all().order_by('-created_at')
+        serializer = AnswerSerializer(answers, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = AnswerSerializer(data=request.data)
+        if serializer.is_valid():
+            image = request.FILES.get('image')
+            image_url = None
+            if image:
+                image_url = upload_image_to_backblaze(image)
+            serializer.save(user=request.user, image_url=image_url)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request, pk):
+        try:
+            answer = Answer.objects.get(pk=pk)
+        except Answer.DoesNotExist:
+            return Response({"error": "Answer not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = AnswerSerializer(answer, data=request.data, partial=True)
+        if serializer.is_valid():
+            image = request.FILES.get('image')
+            image_url = answer.image_url
+            if image:
+                image_url = upload_image_to_backblaze(image)
+            serializer.save(image_url=image_url)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class LikeDislikeAPIView(APIView):
+    def post(self, request):
+        serializer = LikeDislikeSerializer(data=request.data)
+        if serializer.is_valid():
+            user = request.user
+            question = serializer.validated_data.get('question', None)
+            answer = serializer.validated_data.get('answer', None)
+
+            if question:
+                # Check if question exists
+                try:
+                    question_instance = Question.objects.get(id=question.id)
+                except Question.DoesNotExist:
+                    return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
+
+                # Check for existing vote
+                existing_vote = LikeDislike.objects.filter(user=user, question=question_instance).first()
+                if existing_vote:
+                    if existing_vote.vote == serializer.validated_data['vote']:
+                        return Response({"error": "You have already voted on this question."}, status=status.HTTP_400_BAD_REQUEST)
+                    else:
+                        # Update existing vote
+                        existing_vote.vote = serializer.validated_data['vote']
+                        existing_vote.save()
+                        return Response({"message": "Vote on question updated."}, status=status.HTTP_200_OK)
+                else:
+                    # Save new vote
+                    serializer.save(user=user, question=question_instance)
+                    return Response({"message": "Vote on question saved."}, status=status.HTTP_201_CREATED)
+
+            elif answer:
+                # Check if answer exists
+                try:
+                    answer_instance = Answer.objects.get(id=answer.id)
+                except Answer.DoesNotExist:
+                    return Response({"error": "Answer not found."}, status=status.HTTP_404_NOT_FOUND)
+
+                # Check for existing vote
+                existing_vote = LikeDislike.objects.filter(user=user, answer=answer_instance).first()
+                if existing_vote:
+                    if existing_vote.vote == serializer.validated_data['vote']:
+                        return Response({"error": "You have already voted on this answer."}, status=status.HTTP_400_BAD_REQUEST)
+                    else:
+                        # Update existing vote
+                        existing_vote.vote = serializer.validated_data['vote']
+                        existing_vote.save()
+                        return Response({"message": "Vote on answer updated."}, status=status.HTTP_200_OK)
+                else:
+                    # Save new vote
+                    serializer.save(user=user, answer=answer_instance)
+                    return Response({"message": "Vote on answer saved."}, status=status.HTTP_201_CREATED)
+
+            return Response({"error": "You must vote on either a question or an answer."}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class CommentAPIView(APIView):
+    def get(self, request):
+        comments = Comment.objects.all().order_by('-created_at')
+        serializer = CommentSerializer(comments, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = CommentSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class SearchAPIView(APIView):
+    def get(self, request):
+        query = request.query_params.get('q',None)
+        if not query:
+            return Response({"error": "No search query provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        questions = Question.objects.filter(
+            Q(title__icontains=query) | Q(content__icontains=query) | Q(user__username__icontains=query)
+        )
+        answers = Answer.objects.filter(
+            Q(content__icontains=query) | Q(user__username__icontains=query)
+        )
+
+        question_serializer = QuestionSerializer(questions, many=True)
+        answer_serializer = AnswerSerializer(answers, many=True)
+
+        return Response({
+            'questions': question_serializer.data,
+            'answers': answer_serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class FollowUserAPIView(APIView):
+    def post(self, request, pk):
+        user_to_follow = User.objects.get(pk=pk)
+        if user_to_follow == request.user:
+            return Response({"error": "You cannot follow yourself."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if request.user.profile.following.filter(pk=pk).exists():
+            return Response({"error": "You are already following this user."}, status=status.HTTP_400_BAD_REQUEST)
+
+        request.user.profile.following.add(user_to_follow)
+        return Response({"message": f"You are now following {user_to_follow.username}"}, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        user_to_unfollow = User.objects.get(pk=pk)
+        if user_to_unfollow == request.user:
+            return Response({"error": "You cannot unfollow yourself."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not request.user.profile.following.filter(pk=pk).exists():
+            return Response({"error": "You are not following this user."}, status=status.HTTP_400_BAD_REQUEST)
+
+        request.user.profile.following.remove(user_to_unfollow)
+        return Response({"message": f"You have unfollowed {user_to_unfollow.username}"}, status=status.HTTP_200_OK)
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]

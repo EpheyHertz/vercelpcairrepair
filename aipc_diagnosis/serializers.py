@@ -1,7 +1,7 @@
 from rest_framework import serializers
 # from django.contrib.auth.models import User
 from rest_framework.validators import UniqueValidator
-from .models import UserProfile,Chat,ChatMessage,User
+from .models import UserProfile,Chat,ChatMessage,User, Question, Answer, Comment, LikeDislike, Follower
 from django.db import transaction
 from rest_framework.validators import UniqueValidator
 from django.core.mail import send_mail
@@ -108,3 +108,29 @@ class ChatMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatMessage
         fields = '__all__'  # You can specify fields explicitly if needed
+
+class QuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Question
+        fields = ['id', 'category', 'title', 'content', 'image_url', 'user', 'created_at', 'updated_at']
+
+class AnswerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Answer
+        fields = ['id', 'question', 'content', 'image_url', 'user', 'created_at', 'updated_at']
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ['id', 'question', 'answer', 'content', 'user', 'created_at']
+
+class LikeDislikeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LikeDislike
+        fields = ['id', 'question', 'answer', 'vote', 'user']
+
+class FollowerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Follower
+        fields = ['follower', 'followed', 'followed_at']
