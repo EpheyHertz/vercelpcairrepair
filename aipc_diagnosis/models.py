@@ -64,7 +64,6 @@ class Diagnosis(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='diagnoses')
     symptoms = models.TextField()  # User input symptoms
     diagnosis_result = models.TextField()  # Result from AI model
-    image = models.ImageField(upload_to='diagnoses/')  # Store the image file
     image_url = models.URLField(blank=True, null=True)  # Store the Backblaze URL
     created_at = models.DateTimeField(auto_now_add=True)
 

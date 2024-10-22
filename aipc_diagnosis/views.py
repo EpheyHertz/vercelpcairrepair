@@ -29,6 +29,7 @@ from newsapi import NewsApiClient
 import io
 import requests
 import os
+import PIL.Image
 import tempfile
 from django.contrib.auth import logout
 import smtplib
@@ -143,6 +144,7 @@ generation_config = {
     "response_mime_type": "text/plain",
 }
 
+
 model = genai.GenerativeModel(
     model_name="gemini-1.5-flash",
     generation_config=generation_config,
@@ -213,6 +215,7 @@ class DiagnosisChatbotView(APIView):
                         temp_file.write(chunk)
                     temp_file.flush()  # Ensure all data is written to the file
                 # Upload the image and get the URL
+                # img = PIL.Image.open(image)
                 image_url = upload_image_to_backblaze(image)  # Implement this function in utils.py
                 if not image_url:
                     return Response({'error': 'Failed to upload image'}, status=status.HTTP_400_BAD_REQUEST)
@@ -313,7 +316,7 @@ class DiagnosisChatbotView(APIView):
     )
 
     # Sending a prompt to the model to get a response
-     response = chat_session.send_message("Please provide a detailed diagnosis of any issues.")
+     response = chat_session.send_message(["Analyze the image provided below for any visible hardware or software issues. Please focus on identifying common problems such as: - Signs of physical damage (e.g., cracks, dents, loose components) - Software errors or warnings displayed in the image - Any unusual configurations or settings visible - General condition of the hardware (e.g., cleanliness, organization). Provide a structured list of findings, including a summary of the overall condition of the equipment.",image_url])
      diagnosis_result = response.text  # Capture the diagnosis result
      return diagnosis_result
 
@@ -324,10 +327,9 @@ class UserChatsView(APIView):
 
     def get(self, request):
         user = request.user  # Get the logged-in user
-        chats = Chat.objects.filter(user=user)  # Fetch chats associated with the user
+        chats = Chat.objects.filter(user=user).order_by('-created_at')  # Fetch chats in descending order
         serializer = ChatSerializer(chats, many=True)  # Serialize the chat data
         return Response(serializer.data)  # Return the serialized data
-    
 
 
 # views.py
@@ -622,7 +624,7 @@ class TechNewsAPIViewLocalHost(APIView):
             coding_news = newsapi.get_everything(
                 q='programming',
                 language='en',
-                sort_by='relevancy'  # You can also use 'publishedAt' to get the latest news
+                sort_by='publishedAt'  # You can also use 'publishedAt' to get the latest news
             )
             
             # coding_headlines = newsapi.get_everything(
@@ -638,8 +640,9 @@ class TechNewsAPIViewLocalHost(APIView):
             # )
 
             # Extract articles from both responses
-            tech_articles = tech_headlines.get('articles', [])
-            coding_articles = coding_news.get('articles', [])
+            tech_articles = tech_headlines.get('articles', [])[:50]
+            coding_articles = coding_news.get('articles', [])[:50]
+
             #business_articles = business_headlines.get('articles', [])
 
             # Combine the articles
