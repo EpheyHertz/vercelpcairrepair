@@ -19,6 +19,7 @@ from .models import UserProfile,User
 import http.client
 import urllib.parse
 import json
+
 from django.utils import timezone
 import pytz    
 from .serializers import UserProfileSerializer
@@ -48,8 +49,7 @@ from django.contrib.auth.tokens import default_token_generator
 import google.generativeai as genai
 GEMINI_AI_API_KEY=settings.GEMINI_AI_API_KEY
 genai.configure(api_key=GEMINI_AI_API_KEY)
-from .utils import upload_image_to_backblaze  # Import your image upload utility function
-
+from .utils import upload_image_to_backblaze, fetch_news_from_scraper
 import logging
 
 logger = logging.getLogger(__name__)
@@ -545,7 +545,7 @@ class ContactUsView(APIView):
             return Response({'error': f'Failed to send acknowledgment email to user: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 class TechNewsAPIView(APIView):
-    permission_classes=[IsAuthenticated]
+    # permission_classes=[IsAuthenticated]
     def get(self, request):
         # Get pagination params from request
         page = int(request.GET.get('page', 1))  # Default to page 1
@@ -572,11 +572,14 @@ class TechNewsAPIView(APIView):
             decoded_data = data.decode('utf-8')
             news_data = json.loads(decoded_data)
             api_articles = news_data.get('data', [])
-
+            scrapped_articles=fetch_news_from_scraper()
+            all_articles_from_apis=api_articles+scrapped_articles
+           
+            
             # Fetch articles from the database
             db_articles = list(
                     NewsArticle.objects.all()
-                    .order_by('-published_at')  # Sort by latest published date (descending order)
+                    .order_by('-published_at')  
                     .values(
                         'source__name',
                         'author',
@@ -586,15 +589,15 @@ class TechNewsAPIView(APIView):
                         'urlToImage',
                         'published_at',
                         'content'
-                    )[offset:offset+limit]  # Pagination using offset and limit
+                    ) 
                 )
 
-
+            combined_articles = all_articles_from_apis + db_articles
             # Combine API articles and DB articles
-            combined_articles = api_articles + db_articles
+            
 
             # Pagination handling
-            total_articles = len(api_articles) + NewsArticle.objects.count()  # Total count from API and DB
+            total_articles = len(combined_articles) # Total count from API and DB
             total_pages = (total_articles // limit) + (1 if total_articles % limit else 0)
             has_next = page < total_pages
 
