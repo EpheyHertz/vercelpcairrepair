@@ -49,6 +49,7 @@ import google.generativeai as genai
 GEMINI_AI_API_KEY=settings.GEMINI_AI_API_KEY
 genai.configure(api_key=GEMINI_AI_API_KEY)
 from .utils import upload_image_to_backblaze  # Import your image upload utility function
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -172,6 +173,7 @@ model = genai.GenerativeModel(
     "Here are some resources I might reference during our conversation:\n"
     "1. [iFixit](https://www.ifixit.com) – Comprehensive repair guides for various devices.\n"
     "2. [Tom's Hardware](https://www.tomshardware.com) – Tech news and reviews to help troubleshoot issues.\n"
+    "2. [pc world news to get the latest windows update and news](https://www.pcworld.com/windows/news) – Tech news and reviews to help troubleshoot issues.\n"
     "3. [CNET](https://www.cnet.com) – Product reviews and recommendations for tech gadgets.\n"
     "4. [TechSpot](https://www.techspot.com) – News and guides on PC hardware and software troubleshooting.\n"
     "5. [Android Authority](https://www.androidauthority.com) – Advice and tips on smartphone issues and repairs.\n\n"
@@ -674,45 +676,54 @@ class TechNewsAPIViewLocalHost(APIView):
         ]
 
     def save_articles(self, articles):
-     for article in articles:
-        # Extract and format the fields from the API response
-        source_data = article.get('source', {})
-        source_name = source_data.get('name', None)
-        source_id = source_data.get('id', None)
+        for article in articles:
+            # Extract and format the fields from the API response
+            source_data = article.get('source', {})
+            source_name = source_data.get('name', None)
+            source_id = source_data.get('id', None)
 
-        author = article.get('author', None)
-        title = article.get('title', None)
-        description = article.get('description', None)
-        url = article.get('url', None)
-        url_to_image = article.get('urlToImage', None)
-        published_at = article.get('publishedAt', None)
-        content = article.get('content', None)
+            author = article.get('author', None)
+            title = article.get('title', None)
+            description = article.get('description', None)
+            url = article.get('url', None)
+            url_to_image = article.get('urlToImage', None)
+            published_at = article.get('publishedAt', None)
+            content = article.get('content', None)
 
-        # Convert published_at to a timezone-aware datetime object if it's available
-        if published_at and isinstance(published_at, str):
-            naive_dt = datetime.strptime(published_at, '%Y-%m-%dT%H:%M:%SZ')
-            aware_dt = timezone.make_aware(naive_dt, timezone=pytz.UTC)
-            published_at = aware_dt
+            # Skip if the title is longer than 255 characters
+            if title and len(title) > 255:
+                print(f"Skipping article with title: {title} - Title exceeds 255 characters.")
+                continue
+            if author and len(author) > 255 :
+                print(f"Skipping article with title: {author} - Author name exceeds 255 characters.")
+                continue
 
-        # Handle the source - either create or get the existing source
-        source, created = NewsSource.objects.get_or_create(
-            name=source_name,
-            defaults={'source_id': source_id}
-        )
+            # Convert published_at to a timezone-aware datetime object if it's available
+            if published_at and isinstance(published_at, str):
+                naive_dt = datetime.strptime(published_at, '%Y-%m-%dT%H:%M:%SZ')
+                aware_dt = timezone.make_aware(naive_dt, timezone=pytz.UTC)
+                published_at = aware_dt
 
-        # Save each article to the database, preventing duplicates using 'title'
-        NewsArticle.objects.get_or_create(
-            title=title,
-            defaults={
-                'source': source,
-                'author': author,
-                'description': description,
-                'url': url,
-                'urlToImage': url_to_image,  # Consistent field naming
-                'published_at': published_at,
-                'content': content,
-            }
-        )
+            # Handle the source - either create or get the existing source
+            source, created = NewsSource.objects.get_or_create(
+                name=source_name,
+                defaults={'source_id': source_id}
+            )
+
+            # Save each article to the database, preventing duplicates using 'title'
+            NewsArticle.objects.get_or_create(
+                title=title,
+                defaults={
+                    'source': source,
+                    'author': author,
+                    'description': description,
+                    'url': url,
+                    'urlToImage': url_to_image,  # Consistent field naming
+                    'published_at': published_at,
+                    'content': content,
+                }
+            )
+
 
 
 class UserProfileAPIView(APIView):
