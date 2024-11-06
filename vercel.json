@@ -1,4 +1,4 @@
-{
+  {
     "version": 2,
     "builds": [
       {
@@ -23,5 +23,6 @@
         "src": "/(.*)",
         "dest": "aipcdiagnosis/wsgi.py"
       }
-    ]
+    ],
+    "outputDirectory": "staticfiles"
   }
