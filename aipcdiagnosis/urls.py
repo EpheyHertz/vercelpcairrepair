@@ -16,8 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static  # Import static for serving static files
 
 urlpatterns = [
     path('admin/', admin.site.urls),  # Django admin route
     path('apis/', include('aipc_diagnosis.urls')),  # Routes for your APIs under /apis/
 ]
+
+# Add static file serving in development mode
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
