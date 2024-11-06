@@ -192,16 +192,20 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_REFRESH_SERIALIZER": "rest_framework_simplejwt.serializers.TokenRefreshSlidingSerializer",
 }
 STATIC_URL = '/static/'
+
+# Specify STATIC_ROOT for collectstatic
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-if not DEBUG:    # Tell Django to copy static assets into a path called `staticfiles` (this is specific to Render)
+
+# Additional static file directories (optional)
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+
+if 'pcrepair.vercel.app' not in ALLOWED_HOSTS:
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
     # Enable the WhiteNoise storage backend, which compresses static files to reduce disk use
     # and renames the files with unique names for each version to support long-term caching
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
- 
-STATICFILES_DIRS = [  # Additional locations for static files
-    os.path.join(BASE_DIR, 'static'),
-]
 
 load_dotenv()
 NEWS_API_KEY=os.getenv('news_api_key')
