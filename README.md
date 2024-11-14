@@ -70,84 +70,102 @@ The application is live and can be accessed through the following links:
    ```bash
    git clone https://github.com/EpheyHertz/pcairepairfrontend.git
    cd pcairepair-frontend
+```
+
 2. Install dependencies:
 
-   ```
+   ```bash
    npm install
+```
 
-    
-3. Create a .env.local file in the root directory and add the necessary environment variables:
+3. Create a `.env.local` file in the root directory and add the necessary environment variables:
 
-    ```
+    ```bash
     NEXT_PUBLIC_API_BASE_URL=https://aipcrepair.onrender.com/apis/
+```
+
 4. Run the development server:
 
-   ```
+   ```bash
    npm run dev
-   Visit the application at http://localhost:3000.
+```
 
-5. Backend
-5.1 Clone the backend repository:
+   Visit the application at `http://localhost:3000`.
 
+### Backend
 
-    ```
-        git clone https://github.com/EpheyHertz/pcairepairbackend.git
-        cd aipcrepair-backend
+1. Clone the backend repository:
 
-5.2 Install Python dependencies:
+    ```bash
+    git clone https://github.com/EpheyHertz/pcairepairbackend.git
+    cd aipcrepair-backend
+```
 
-    ```
+2. Install Python dependencies:
+
+    ```bash
     pip install -r requirements.txt
-5.3 Set up your MySQL database and configure the settings.py file:
+```
 
+3. Set up your MySQL database and configure the `settings.py` file:
 
-        ```
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.mysql',
-                'NAME': 'your_db_name',
-                'USER': 'your_db_user',
-                'PASSWORD': 'your_db_password',
-                'HOST': 'your_db_host',
-                'PORT': 'your_db_port',
-            }
+    ```python
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'your_db_name',
+            'USER': 'your_db_user',
+            'PASSWORD': 'your_db_password',
+            'HOST': 'your_db_host',
+            'PORT': 'your_db_port',
         }
-5.4 Set up environment variables for JWT authentication in .env:
+    }
+```
 
+4. Set up environment variables for JWT authentication in `.env`:
 
-    ```
+    ```bash
     SECRET_KEY=your_secret_key
-5.5 Run the migrations and start the server:
+```
 
-    ```
-    
+5. Run the migrations and start the server:
+
+    ```bash
     python manage.py migrate
     python manage.py runserver
-Visit the API at http://localhost:8000.
+```
 
-API Documentation
-The backend provides several endpoints for user authentication, profile management, chats, and diagnostics. For detailed API usage and documentation, visit the DocTech API Documentation.
+   Visit the API at `http://localhost:8000`.
 
-Deployment
-Frontend Deployment (Vercel)
-The frontend is automatically deployed via Vercel. The vercel.json file contains the configuration for deployment. Visit the live application at DocTech Frontend on Vercel.
+## API Documentation
 
-Backend Deployment (Render)
-The backend is hosted on Render, with automatic deployments on push to the main branch. Visit the API live at DocTech API on Render.
+The backend provides several endpoints for user authentication, profile management, chats, and diagnostics. For detailed API usage and documentation, visit the [DocTech API Documentation](https://aipcrepair.onrender.com/apis/docs/).
 
-Contributing
+## Deployment
+
+### Frontend Deployment (Vercel)
+
+The frontend is automatically deployed via Vercel. The `vercel.json` file contains the configuration for deployment. Visit the live application at [DocTech Frontend on Vercel](https://pcairepair.vercel.app/).
+
+### Backend Deployment (Render)
+
+The backend is hosted on Render, with automatic deployments on push to the main branch. Visit the API live at [DocTech API on Render](https://aipcrepair.onrender.com/apis/).
+
+## Contributing
+
 Contributions are welcome! To contribute:
 
-Fork the repository.
-Create a new branch for your feature or bugfix.
-Commit your changes.
-Open a pull request, and we will review your submission.
-Please follow the contribution guidelines for more details.
+1. Fork the repository.
+2. Create a new branch for your feature or bugfix.
+3. Commit your changes.
+4. Open a pull request, and we will review your submission.
 
+Please follow the [contribution guidelines](https://github.com/EpheyHertz/pcairepairfrontend/blob/main/CONTRIBUTING.md) for more details.
 
-Acknowledgments
+## License
+
+This project is licensed under the [MIT License](https://github.com/EpheyHertz/pcairepairfrontend/blob/main/LICENSE).
+
+## Acknowledgments
+
 We would like to thank the open-source community for their continuous support and contributions to the tools and frameworks that made DocTech possible.
-
-
-
-

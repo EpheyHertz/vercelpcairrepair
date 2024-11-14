@@ -253,4 +253,5 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 ACCOUNT_LOGOUT_ON_GET = True
+FRONTEND_URL='https://pcrepair.vercel.app'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

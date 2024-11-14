@@ -7,34 +7,75 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f7f7f7;
+            background: linear-gradient(to bottom right, #0073e6, #66b3ff);
             margin: 0;
             padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
         }
         .container {
+            width: 90%;
             max-width: 600px;
-            margin: 20px auto;
-            padding: 20px;
-            background-color: #fff;
+            background-color: #ffffff;
+            padding: 30px;
             border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            transform: translateY(-20px);
+            opacity: 0;
+            animation: fadeIn 0.6s ease-out forwards, slideIn 0.8s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
         h2 {
-            color: #4CAF50;
+            color: #0073e6;
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+            animation: bounce 1s infinite alternate;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
         }
         p {
             font-size: 16px;
             color: #333;
+            line-height: 1.5;
+            text-align: center;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 14px;
+            color: #666;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+        .footer a {
+            color: #0073e6;
+            text-decoration: none;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Thank You, {{ full_name }}!</h2>
+    <h2>Thank You, {{ full_name | capfirst }}!</h2>
     <p>We have received your message and will get back to you as soon as possible. Thank you for reaching out to us!</p>
-    <p>Best regards,</p>
-    <p>The Support Team at DocTech</p>
+    <div class="footer">
+        <p>Best regards,</p>
+        <p>The Support Team at DocTech</p>
+        <p><a href="https://pcrepair.vercel.app/">Visit Our Website</a></p>
+    </div>
 </div>
 
 </body>

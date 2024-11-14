@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+            background: linear-gradient(to bottom right, #0066cc, #33ccff);
             margin: 0;
             padding: 0;
             -webkit-text-size-adjust: 100%;
@@ -16,45 +16,61 @@
         .email-container {
             width: 100%;
             max-width: 600px;
-            margin: 0 auto;
+            margin: 40px auto;
             background-color: #ffffff;
-            padding: 20px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            text-align: center;
         }
         h1 {
-            font-size: 24px;
-            color: #333;
+            font-size: 28px;
+            color: #333333;
+            margin-bottom: 20px;
         }
         p {
             font-size: 16px;
-            color: #666;
+            color: #666666;
+            line-height: 1.6;
+            margin-bottom: 20px;
         }
         .button {
             display: inline-block;
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
+            padding: 12px 25px;
+            background-color: #0066cc;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: bold;
             text-decoration: none;
             border-radius: 5px;
-            margin-top: 15px; /* Add some space above the button */
+            transition: background-color 0.3s ease;
         }
         .button:hover {
-            background-color: #45a049;
+            background-color: #004d99;
+        }
+        .footer {
+            font-size: 14px;
+            color: #999999;
+            margin-top: 30px;
         }
     </style>
 </head>
 <body>
     <div class="email-container">
-        <h1>Verify Your Email</h1>
-        <p>Hello {{ user.username }},</p>
-        <p>Thank you for registering with us! Please verify your email address by clicking the button below:</p>
+        <h1>Welcome to DocTech!</h1>
+        <p>Hello {{ username|capfirst }},</p>
+        <p>We're excited to have you with us! Please confirm your email address to activate your account. Click the button below to verify:</p>
         
         <!-- Button for email verification -->
-        <a href="{{ verification_link }}" class="button">Verify Email</a>
+        <a href="{{ verification_url }}" class="button">Verify Your Email</a>
         
-        <p>If you didn’t request this, please ignore this email.</p>
-        <p>If the button is not clickable.Copy this to your browser  {{ verification_link }}</p>
-        <p>Best regards, <br> The DocTech Team</p>
+        <p>If you didn’t request this email, feel free to ignore it.</p>
+        <p>If the button above isn’t working, copy and paste this link into your browser:</p>
+        <p><a href="{{ verification_url }}" style="color: #0066cc;">{{ verification_url }}</a></p>
+        
+        <div class="footer">
+            <p>Best regards,<br>The DocTech Team</p>
+        </div>
     </div>
 </body>
 </html>
