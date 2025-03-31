@@ -66,6 +66,8 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(cls, attrs):
         email = attrs.get('username')  # You can also use 'email' here directly if preferred
         password = attrs.get('password')
+        print("Email:", email)
+        print("Password:", password)
 
         # Retrieve user by email
         try:

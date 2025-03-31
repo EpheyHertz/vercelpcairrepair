@@ -1,3 +1,4 @@
+import random
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -15,10 +16,11 @@ from rest_framework.permissions import AllowAny
 from django.core.mail import send_mail
 from django.contrib.auth.tokens import default_token_generator
 # from django.contrib.auth.models import User
-from .models import UserProfile,User
+from .models import UserProfile,User, VerificationCode
 import http.client
 import urllib.parse
 import json
+from django.utils.http import urlencode
 
 from django.utils import timezone
 import pytz    
@@ -51,7 +53,7 @@ GEMINI_AI_API_KEY=settings.GEMINI_AI_API_KEY
 genai.configure(api_key=GEMINI_AI_API_KEY)
 from .utils import upload_image_to_backblaze, fetch_news_from_scraper
 import logging
-
+from django.utils.timezone import now
 logger = logging.getLogger(__name__)
 class Welcome(APIView):
     permission_classes = [AllowAny]
@@ -421,45 +423,72 @@ class SignupView(APIView):
             username = serializer.validated_data['username']
             email = serializer.validated_data['email']
             password = serializer.validated_data['password']
+            platform = request.query_params.get('platform', '')  # Check if platform is passed
 
-            # Check if username or email is already taken
+            # Check if username or email already exists
             if User.objects.filter(username=username).exists():
                 return Response({'error': 'Username is already taken'}, status=status.HTTP_400_BAD_REQUEST)
             if User.objects.filter(email=email).exists():
                 return Response({'error': 'Email is already registered'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Create the user (inactive until email is verified)
+            # Create the user (inactive until verified)
             user = User(username=username, email=email, is_active=False)
             user.set_password(password)
             user.save()
 
-            # Send verification email
             try:
-                token = default_token_generator.make_token(user)
-                verification_url = f'https://pcairepair.vercel.app/verify-email/?email={user.email}&token={token}'
-                print(verification_url)
+                if platform.lower() == 'mobile':  
+                    # Generate a 6-digit verification code
+                    verification_code = f"{random.randint(100000, 999999)}"
 
-                email_subject = 'Verify your email address'
-                email_body = render_to_string('email_verification_template.html', {
-                    'username': user.username,
-                    'verification_url': verification_url,
-                })
+                    # Save the verification code to database
+                    VerificationCode.objects.create(user=user, code=verification_code)
 
-                # Prepare email message
-                send_mail(
-                    subject=email_subject,
-                    message="",
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                    fail_silently=False,
-                    html_message=email_body,
-                )
+                    # Send verification code via email
+                    email_subject = 'Your Mobile Verification Code'
+                    email_body = render_to_string('mobile_verification_template.html', {
+                        'username': user.username,
+                        'verification_code': verification_code,
+                    })
 
-                return Response({'message': 'User registered successfully! Please verify your email.'}, status=status.HTTP_201_CREATED)
+                    send_mail(
+                        subject=email_subject,
+                        message="",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[user.email],
+                        fail_silently=False,
+                        html_message=email_body,
+                    )
+
+                    return Response({'message': 'Verification code sent to your email.'}, status=status.HTTP_201_CREATED)
+
+                else:
+                    # Send email verification link
+                    token = default_token_generator.make_token(user)
+                    verification_url = f'https://pcairepair.vercel.app/verify-email/?{urlencode({"email": user.email, "token": token})}'
+                    print(verification_url)
+
+                    email_subject = 'Verify your email address'
+                    email_body = render_to_string('email_verification_template.html', {
+                        'username': user.username,
+                        'verification_url': verification_url,
+                    })
+
+                    send_mail(
+                        subject=email_subject,
+                        message="",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[user.email],
+                        fail_silently=False,
+                        html_message=email_body,
+                    )
+
+                    return Response({'message': 'User registered successfully! Please verify your email.'}, status=status.HTTP_201_CREATED)
 
             except Exception as e:
-                user.delete()  # Ensure user is not saved if email sending fails
+                user.delete()  # Rollback user if email sending fails
                 return Response({'error': f'Failed to send verification email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
@@ -500,6 +529,57 @@ class VerifyEmailView(APIView):
 
         except Exception as e:
             return Response(f'Failed to send welcome email: {str(e)}', status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+class VerifyCodeView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        code = request.data.get('verification_code')
+
+        try:
+            user = User.objects.get(email=email)
+            verification_entry = VerificationCode.objects.filter(user=user, code=code).first()
+
+            if not verification_entry:
+                return Response({'error': 'Invalid verification code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if code is expired (more than 10 minutes old)
+            if (now() - verification_entry.created_at).total_seconds() > 600:  # 600 seconds = 10 minutes
+                verification_entry.delete()  # Remove expired code
+                return Response({'error': 'Verification code has expired. Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Activate user account
+            user.is_active = True
+            user.save()
+
+            # Delete the verification code after successful verification
+            verification_entry.delete()
+
+            # Send welcome email
+            try:
+                login_url = 'https://pcairepair.vercel.app/auth/login'
+                email_subject = 'Welcome to DocTech!'
+                email_body = render_to_string('welcome_email_template.html', {
+                    'username': user.username,
+                    'login_url': login_url,
+                })
+
+                send_mail(
+                    subject=email_subject,
+                    message="",  # Empty text message since we're using HTML
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                    html_message=email_body,
+                )
+
+            except Exception as e:
+                return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            return Response({'message': 'Email verified successfully! You can now log in.'}, status=status.HTTP_200_OK)
+
+        except User.DoesNotExist:
+            return Response({'error': 'User not found.'}, status=status.HTTP_400_BAD_REQUEST)
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
@@ -519,7 +599,46 @@ class PasswordResetConfirmView(APIView):
                 return Response({'error': 'Invalid token.'}, status=status.HTTP_400_BAD_REQUEST)
         except User.DoesNotExist:
             return Response({'error': 'Invalid user.'}, status=status.HTTP_400_BAD_REQUEST)
+
+class ResendVerificationCodeView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+
+        try:
+            user = User.objects.get(email=email)
+
+            if user.is_active:
+                return Response({'error': 'This account is already verified.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Generate new 6-digit verification code
+            new_code = str(random.randint(100000, 999999))
+
+            # Delete any previous verification code for the user
+            VerificationCode.objects.filter(user=user).delete()
+
+            # Create a new verification code entry
+            VerificationCode.objects.create(user=user, code=new_code)
+
+            # Render the email template
+            email_subject = 'Resend Verification Code - DocTech'
+            email_body = render_to_string('mobile_verification_template.html', {
+                'username': user.username,
+                'verification_code': new_code
+            })
+
+            send_mail(
+                        subject=email_subject,
+                        message="",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[user.email],
+                        fail_silently=False,
+                        html_message=email_body,
+                    )
+
+            return Response({'message': 'A new verification code has been sent to your email.'}, status=status.HTTP_200_OK)
         
+        except User.DoesNotExist:
+            return Response({'error': 'Email not found. Please sign up first.'}, status=status.HTTP_400_BAD_REQUEST)
 
 class ContactUsView(APIView):
     permission_classes = [IsAuthenticated]

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your DocTech Account</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to bottom right, #0066cc, #33ccff);
+            margin: 0;
+            padding: 0;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        .email-container {
+            width: 100%;
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        h1 {
+            font-size: 28px;
+            color: #333333;
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 16px;
+            color: #666666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .code-box {
+            display: inline-block;
+            font-size: 24px;
+            font-weight: bold;
+            color: #0066cc;
+            background-color: #f4f4f4;
+            padding: 15px 25px;
+            border-radius: 6px;
+            margin: 20px auto;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+        .footer {
+            font-size: 14px;
+            color: #999999;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <h1>Verify Your DocTech Account</h1>
+        <p>Hello <strong>{{ username|capfirst }}</strong>,</p>
+        <p>Thank you for signing up with DocTech. To complete your registration, please enter the verification code below:</p>
+        
+        <!-- Verification Code Display -->
+        <div class="code-box">{{ verification_code }}</div>
+        
+        <p>This code is valid for <strong>10 minutes</strong>. If you didn’t request this, please ignore this email.</p>
+
+        <p>If the code expires, you can request a new one from the verification page.</p>
+        
+        <div class="footer">
+            <p>Best regards,<br>The DocTech Team</p>
+        </div>
+    </div>
+</body>
+</html>

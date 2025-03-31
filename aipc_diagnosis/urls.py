@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import SignupView,Welcome,MyTokenObtainPairView,DiagnosisChatbotView,UserProfileView,UserChatsView,ChatMessageListCreateAPIView,PasswordResetRequestView,PasswordResetConfirmView,ContactUsView,ValidateTokenView,DeleteChatView,VerifyEmailView,LogoutView,TechNewsAPIView,TechNewsAPIViewLocalHost
+from .views import ResendVerificationCodeView, SignupView,Welcome,MyTokenObtainPairView,DiagnosisChatbotView,UserProfileView,UserChatsView,ChatMessageListCreateAPIView,PasswordResetRequestView,PasswordResetConfirmView,ContactUsView,ValidateTokenView,DeleteChatView,VerifyEmailView,LogoutView,TechNewsAPIView,TechNewsAPIViewLocalHost,VerifyCodeView
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     QuestionAPIView,
@@ -20,6 +20,8 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('chats/<int:pk>/messages/', ChatMessageListCreateAPIView.as_view(), name='chat-message-list-create'),
     path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset'),
+    path('verify-code/', VerifyCodeView.as_view(), name='Mobile code veridication'),
+    path('resend-verification-code/', ResendVerificationCodeView.as_view(), name='Mobile resend-verification-code'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('contact-us/', ContactUsView.as_view(), name='contact-us'),
     path('validate-token/', ValidateTokenView.as_view(), name='validate_token'),

@@ -149,3 +149,12 @@ class Follower(models.Model):
 
     class Meta:
         unique_together = ('follower', 'followed')  # Prevent duplicate followings
+
+
+class VerificationCode(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Verification Code for {self.user.email}"
