@@ -46,7 +46,7 @@ from .models import NewsArticle,NewsSource
 # from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.contrib.auth.tokens import default_token_generator
-
+from django.db import transaction
 
 import google.generativeai as genai
 GEMINI_AI_API_KEY=settings.GEMINI_AI_API_KEY
@@ -650,45 +650,102 @@ class PasswordResetConfirmView(APIView):
             return Response({'error': 'Invalid user.'}, status=status.HTTP_400_BAD_REQUEST)
 
 class ResendVerificationCodeView(APIView):
+    permission_classes = [AllowAny]
+    CODE_LENGTH = 6
+    MAX_RETRIES = 3  # For code generation collision avoidance
+
     def post(self, request):
-        email = request.data.get('email')
+        email = request.data.get('email', '').strip().lower()
+        
+        # Input validation
+        if not email:
+            return Response(
+                {'error': 'Email is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
-            user = User.objects.get(email=email)
-
-            if user.is_active:
-                return Response({'error': 'This account is already verified.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Generate new 6-digit verification code
-            new_code = str(random.randint(100000, 999999))
-
-            # Delete any previous verification code for the user
-            VerificationCode.objects.filter(user=user).delete()
-
-            # Create a new verification code entry
-            VerificationCode.objects.create(user=user, code=new_code)
-
-            # Render the email template
-            email_subject = 'Resend Verification Code - DocTech'
-            email_body = render_to_string('mobile_verification_template.html', {
-                'username': user.username,
-                'verification_code': new_code
-            })
-
-            send_mail(
-                        subject=email_subject,
-                        message="",
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=[user.email],
-                        fail_silently=False,
-                        html_message=email_body,
+            with transaction.atomic():
+                try:
+                    user = User.objects.get(email=email)
+                except User.DoesNotExist:
+                    return Response(
+                        {'error': 'No account found with this email. Please sign up first.'},
+                        status=status.HTTP_404_NOT_FOUND
                     )
 
-            return Response({'message': 'A new verification code has been sent to your email.'}, status=status.HTTP_200_OK)
-        
-        except User.DoesNotExist:
-            return Response({'error': 'Email not found. Please sign up first.'}, status=status.HTTP_400_BAD_REQUEST)
+                if user.is_active:
+                    return Response(
+                        {'error': 'This account is already verified.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
 
+                # Generate and save new code with retry logic
+                code_saved = False
+                for _ in range(self.MAX_RETRIES):
+                    try:
+                        new_code = self._generate_verification_code()
+                        
+                        # Delete old codes and create new one atomically
+                        VerificationCode.objects.filter(user=user).delete()
+                        VerificationCode.objects.create(user=user, code=new_code)
+                        code_saved = True
+                        break
+                    except Exception as e:
+                        logger.warning(f"Code generation/save attempt failed: {str(e)}")
+                        continue
+
+                if not code_saved:
+                    raise Exception("Failed to generate and save verification code after multiple attempts")
+
+                # Send email
+                email_sent = self._send_verification_email(user, new_code)
+                if not email_sent:
+                    raise Exception("Failed to send verification email")
+
+                return Response(
+                    {'message': 'A new verification code has been sent to your email.'},
+                    status=status.HTTP_200_OK
+                )
+
+        except Exception as e:
+            logger.error(f"Error in resend verification: {str(e)}")
+            return Response(
+                {'error': 'Failed to resend verification code. Please try again.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _generate_verification_code(self):
+        """Generate a random numeric code of specified length"""
+        return str(random.randint(
+            10**(self.CODE_LENGTH-1),
+            (10**self.CODE_LENGTH)-1
+        ))
+
+    def _send_verification_email(self, user, code):
+        """Send verification email with error handling"""
+        try:
+            email_subject = 'Your New Verification Code - DocTech'
+            email_body = render_to_string(
+                'mobile_verification_template.html',
+                {
+                    'username': user.username,
+                    'verification_code': code
+                }
+            )
+
+            send_mail(
+                subject=email_subject,
+                message="",  # Empty text message since we're using HTML
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+                html_message=email_body,
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
+            return False
 class ContactUsView(APIView):
     permission_classes = [IsAuthenticated]
 
