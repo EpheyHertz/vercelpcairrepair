@@ -41,7 +41,7 @@ from .models import Chat, ChatMessage, Diagnosis,Question, Answer, LikeDislike, 
 from rest_framework.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
-from datetime import datetime
+from datetime import datetime, timedelta
 from .models import NewsArticle,NewsSource
 # from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
@@ -537,55 +537,99 @@ class VerifyEmailView(APIView):
         
 
 class VerifyCodeView(APIView):
+    permission_classes = [AllowAny]
+    CODE_EXPIRATION_MINUTES = 10
+    WELCOME_EMAIL_TEMPLATE = 'welcome_email_template.html'
+    LOGIN_URL = 'https://pcairepair.vercel.app/auth/login'
+
     def post(self, request):
-        email = request.data.get('email')
-        code = request.data.get('verification_code')
+        email = request.data.get('email', '').strip().lower()
+        code = request.data.get('verification_code', '').strip()
+
+        # Input validation
+        if not email or not code:
+            return Response(
+                {'error': 'Both email and verification code are required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             user = User.objects.get(email=email)
-            verification_entry = VerificationCode.objects.filter(user=user, code=code).first()
+            
+            # Check if user is already active
+            if user.is_active:
+                return Response(
+                    {'error': 'Account is already verified.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            verification_entry = VerificationCode.objects.filter(
+                user=user, 
+                code=code
+            ).first()
 
             if not verification_entry:
-                return Response({'error': 'Invalid verification code.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {'error': 'Invalid verification code.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-            # Check if code is expired (more than 10 minutes old)
-            if (now() - verification_entry.created_at).total_seconds() > 600:  # 600 seconds = 10 minutes
-                verification_entry.delete()  # Remove expired code
-                return Response({'error': 'Verification code has expired. Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
+            # Check code expiration
+            expiration_time = verification_entry.created_at + timedelta(minutes=self.CODE_EXPIRATION_MINUTES)
+            if timezone.now() > expiration_time:
+                verification_entry.delete()
+                return Response(
+                    {'error': 'Verification code has expired. Please request a new one.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-            # Activate user account
+            # Mark user as active
             user.is_active = True
             user.save()
 
-            # Delete the verification code after successful verification
+            # Clean up verification code
             verification_entry.delete()
 
-            # Send welcome email
-            try:
-                login_url = 'https://pcairepair.vercel.app/auth/login'
-                email_subject = 'Welcome to DocTech!'
-                email_body = render_to_string('welcome_email_template.html', {
-                    'username': user.username,
-                    'login_url': login_url,
-                })
+            # Send welcome email (non-blocking)
+            self._send_welcome_email(user)
 
-                send_mail(
-                    subject=email_subject,
-                    message="",  # Empty text message since we're using HTML
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                    fail_silently=False,
-                    html_message=email_body,
-                )
-
-            except Exception as e:
-                return Response({'error': f'Failed to send welcome email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            return Response({'message': 'Email verified successfully! You can now log in.'}, status=status.HTTP_200_OK)
+            return Response(
+                {'message': 'Email verified successfully! You can now log in.'},
+                status=status.HTTP_200_OK
+            )
 
         except User.DoesNotExist:
-            return Response({'error': 'User not found.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'User with this email does not exist.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'An unexpected error occurred: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
+    def _send_welcome_email(self, user):
+        """Helper method to send welcome email (fire-and-forget)"""
+        try:
+            email_subject = 'Welcome to DocTech!'
+            email_body = render_to_string(self.WELCOME_EMAIL_TEMPLATE, {
+                'username': user.username,
+                'login_url': self.LOGIN_URL,
+            })
+
+            send_mail(
+                subject=email_subject,
+                message="",  # Empty text message since we're using HTML
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=True,  # Don't raise errors if email fails
+                html_message=email_body,
+            )
+        except Exception as e:
+            # Log the email error but don't fail the verification process
+            logger.error(f"Failed to send welcome email to {user.email}: {str(e)}")
+            
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
 
