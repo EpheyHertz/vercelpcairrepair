@@ -423,7 +423,9 @@ class SignupView(APIView):
             username = serializer.validated_data['username']
             email = serializer.validated_data['email']
             password = serializer.validated_data['password']
-            platform = request.query_params.get('platform', '')  # Check if platform is passed
+            
+            # Get platform from query params (remove the extra quotes from frontend)
+            platform = request.query_params.get('platform', '').replace('"', '').lower()
 
             # Check if username or email already exists
             if User.objects.filter(username=username).exists():
@@ -437,7 +439,7 @@ class SignupView(APIView):
             user.save()
 
             try:
-                if platform.lower() == 'mobile':  
+                if platform == 'mobile':  
                     # Generate a 6-digit verification code
                     verification_code = f"{random.randint(100000, 999999)}"
 
@@ -490,6 +492,9 @@ class SignupView(APIView):
                 return Response({'error': f'Failed to send verification email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
 
