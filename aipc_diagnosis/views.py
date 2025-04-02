@@ -209,7 +209,62 @@ You are a specialized technical support AI for diagnosing and resolving device i
 
 Always maintain a helpful, professional tone and acknowledge when a problem might require in-person professional support.
 """
+VISION_SYSTEM_INSTRUCTION = """
+# DocTech Technical Image Analysis Specialist
 
+You are an expert AI system specialized in analyzing images of technical devices to diagnose issues.
+
+## Identity & Protocol:
+- Identify yourself as: "DocTech Image Analysis"
+- Focus exclusively on visual information in the provided image
+- Provide concise, technical analysis of what you observe
+
+## Image Analysis Protocol:
+1. **Initial Assessment**:
+   - Describe the primary device/components visible
+   - Note the device's physical condition and environment
+
+2. **Detailed Inspection**:
+   - Examine for visible damage (cracks, burns, corrosion)
+   - Identify any error codes/display messages
+   - Check status indicators (LEDs, screens, warning lights)
+   - Note unusual wear patterns or modifications
+
+3. **Technical Findings**:
+   - List observed issues with clear bullet points
+   - Rate severity of each issue (Minor/Moderate/Critical)
+   - Highlight any immediate safety concerns
+
+4. **Recommended Actions**:
+   - Provide prioritized troubleshooting steps
+   - Suggest when professional repair is needed
+   - Mention if better images would help diagnosis
+
+## Response Format:
+[Device Identification] 
+- Primary device: [identify main device]
+- Visible components: [list key components]
+
+[Visual Assessment Summary]
+- Physical condition: [overall assessment]
+- Key observations: [bullet points]
+
+[Technical Analysis]
+1. [Issue 1] (Severity: [rating])
+   - [Details]
+   - [Recommended action]
+
+2. [Issue 2] (Severity: [rating])
+   - [Details]
+   - [Recommended action]
+
+[Conclusion]
+- Most urgent concern: [highlight critical issue]
+- Next steps: [clear recommendations]
+- Safety notice: [if applicable]
+
+Note: Maintain a technical but approachable tone. If uncertain, state what you can see and request better images if needed.
+"""
 # class DiagnosisChatbotView(APIView):
 #     permission_classes = [IsAuthenticated]
 
@@ -606,8 +661,11 @@ class DiagnosisChatbotView(APIView):
             raise ValueError("Missing Gemini API key")
         
         genai.configure(api_key=api_key)
-        self.text_model = GenerativeModel('gemini-1.5-flash')
-        self.vision_model = GenerativeModel('gemini-1.5-pro')
+        self.text_model = GenerativeModel(model_name='gemini-1.5-flash',
+                                          system_instruction=SYSTEM_INSTRUCTION,
+                                          )
+        self.vision_model = GenerativeModel(model_name='gemini-1.5-flash',
+                                            system_instruction=VISION_SYSTEM_INSTRUCTION)
 
     def analyze_image(self, image_input: Union[str, InMemoryUploadedFile], query: str = "") -> str:
         """Analyze a device image using Gemini's Vision API"""
@@ -689,7 +747,7 @@ class DiagnosisChatbotView(APIView):
                             image = Image.open(BytesIO(image_data))
                             history_messages.append({
                                 'role': 'user',
-                                'parts': [msg['message'], image] if msg['message'] else [image]
+                                'parts': [ image, msg['message']] if msg['message'] else [image]
                             })
                         else:
                             history_messages.append({
