@@ -141,40 +141,40 @@ class ChatMessageListCreateAPIView(generics.ListCreateAPIView):
 
 
 
-import tempfile
-import logging
+# import tempfile
+# import logging
 
 
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.agents import AgentExecutor
-from langchain.agents.format_scratchpad import format_to_openai_function_messages
-from langchain.agents.output_parsers import OpenAIFunctionsAgentOutputParser
-from langchain_core.tools import Tool
-from langchain_core.runnables import RunnableConfig
-from typing import Optional, List, Dict, Any, Union
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import ValidationError
-from .models import Chat, ChatMessage, Diagnosis
-from django.core.files.base import ContentFile
-from django.db import transaction
-import logging
-import base64
-import requests
-import json
-from uuid import uuid4
-from django.core.files.uploadedfile import InMemoryUploadedFile
-from google.generativeai import GenerativeModel
-import google.generativeai as genai
-from io import BytesIO
-from PIL import Image
-import requests
-NEW_GEMINI_API_KEY=settings.NEW_GEMINI_AI_API_KEY
-logger = logging.getLogger(__name__)
+# from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+# from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+# from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain.agents import AgentExecutor
+# from langchain.agents.format_scratchpad import format_to_openai_function_messages
+# from langchain.agents.output_parsers import OpenAIFunctionsAgentOutputParser
+# from langchain_core.tools import Tool
+# from langchain_core.runnables import RunnableConfig
+# from typing import Optional, List, Dict, Any, Union
+# from rest_framework.views import APIView
+# from rest_framework.response import Response
+# from rest_framework import status
+# from rest_framework.permissions import IsAuthenticated
+# from rest_framework.exceptions import ValidationError
+# from .models import Chat, ChatMessage, Diagnosis
+# from django.core.files.base import ContentFile
+# from django.db import transaction
+# import logging
+# import base64
+# import requests
+# import json
+# from uuid import uuid4
+# from django.core.files.uploadedfile import InMemoryUploadedFile
+# from google.generativeai import GenerativeModel
+# import google.generativeai as genai
+# from io import BytesIO
+# from PIL import Image
+# import requests
+# NEW_GEMINI_API_KEY=settings.NEW_GEMINI_AI_API_KEY
+# logger = logging.getLogger(__name__)
 
 # System instruction with more detailed guidelines
 SYSTEM_INSTRUCTION = """
@@ -210,134 +210,452 @@ You are a specialized technical support AI for diagnosing and resolving device i
 Always maintain a helpful, professional tone and acknowledge when a problem might require in-person professional support.
 """
 
+# class DiagnosisChatbotView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.setup_langchain()
+
+#     def setup_langchain(self):
+#         """Initialize LangChain components with proper configuration"""
+#         # Configure the main model for text responses
+#         self.model = ChatGoogleGenerativeAI(
+#             model="gemini-1.5-flash",
+#             temperature=0.7,
+#             top_p=0.95,
+#             top_k=64,
+#             max_output_tokens=8192,
+#             api_key=self.get_api_key(),
+#         )
+
+#         # Define tools with proper typing and descriptions
+#         self.tools = [
+#             Tool.from_function(
+#                 func=self.analyze_image,
+#                 name="analyze_image",
+#                 description="Analyze device images to identify technical issues. Use this when the user uploads an image.",
+#                 args_schema={"image_url": str, "query": str},
+#                 return_direct=False,
+#             ),
+#             Tool.from_function(
+#                 func=self.technical_support,
+#                 name="technical_support",
+#                 description="Provide text-based technical troubleshooting guidance. Use this for text-only technical questions.",
+#                 args_schema={"description": str},
+#                 return_direct=False,
+#             )
+#         ]
+
+#         # Create a more detailed prompt template
+#         self.prompt = ChatPromptTemplate.from_messages([
+#             ("system", SYSTEM_INSTRUCTION),
+#             MessagesPlaceholder(variable_name="chat_history"),
+#             ("human", "{input}"),
+#             MessagesPlaceholder(variable_name="agent_scratchpad"),
+#         ])
+
+#         # Set up the agent with proper LangChain syntax
+#         self.agent_executor = self.create_agent_executor()
+
+#     def create_agent_executor(self):
+#         """Create properly configured LangChain agent"""
+#         def _format_chat_history(chat_history):
+#             """Convert Django chat history to LangChain message format"""
+#             formatted_messages = []
+#             for msg in chat_history:
+#                 if isinstance(msg, HumanMessage) or isinstance(msg, AIMessage):
+#                     formatted_messages.append(msg)
+#             return formatted_messages
+
+#         # Bind the model to use tools
+#         agent = (
+#             {
+#                 "input": lambda x: x["input"],
+#                 "chat_history": lambda x: _format_chat_history(x.get("chat_history", [])),
+#                 "agent_scratchpad": lambda x: format_to_openai_function_messages(x.get("intermediate_steps", [])),
+#             }
+#             | self.prompt
+#             | self.model.bind_tools(self.tools)
+#             | OpenAIFunctionsAgentOutputParser()
+#         )
+
+#         # Create the executor with verbose mode for debugging
+#         return AgentExecutor(
+#             agent=agent,
+#             tools=self.tools,
+#             verbose=True,
+#             handle_parsing_errors=True,
+#             max_iterations=3,
+#         )
+
+
+
+#     def analyze_image(self, image_input: Union[str, InMemoryUploadedFile], query: str = "") -> str:
+#             """Analyze a device image using Gemini's Vision API with the official Google client library"""
+            
+#             try:
+#                 # Get image binary
+#                 if isinstance(image_input, InMemoryUploadedFile):
+#                     # Handle direct file upload
+#                     image_input.seek(0)
+#                     image_data = image_input.read()
+#                     image = Image.open(BytesIO(image_data))
+#                 elif isinstance(image_input, str):
+#                     # Handle URL
+#                     if image_input.startswith(('http://', 'https://')):
+#                         response = requests.get(image_input)
+#                         response.raise_for_status()
+#                         image = Image.open(BytesIO(response.content))
+#                     else:
+#                         # Handle local file path
+#                         with open(image_input, 'rb') as f:
+#                             image = Image.open(f)
+#                 else:
+#                     raise ValueError("Invalid image input type")
+                
+#                 # Configure the API key
+#                 api_key = self.get_api_key()
+#                 if not api_key:
+#                     raise ValueError("Missing Gemini API key")
+                
+#                 genai.configure(api_key=NEW_GEMINI_API_KEY)
+                
+#                 # Initialize the model (you can choose between different models)
+#                 model = GenerativeModel('gemini-1.5-pro')  # or 'gemini-pro-vision' or 'gemini-1.0-pro'
+                
+#                 # Generate content
+#                 prompt = query if query else "Analyze this technical device image for issues."
+#                 response = model.generate_content([prompt, image])
+                
+#                 # Handle the response
+#                 if not response.parts:
+#                     logger.error("No response parts in Gemini response")
+#                     return "Could not analyze image. Please try again."
+                    
+#                 return response.text
+                
+#             except Exception as e:
+#                 logger.error(f"Image analysis error: {str(e)}")
+#                 return f"Error analyzing image: {str(e)}"
+#     def get_image_binary(self, image_url: str) -> bytes:
+#         """Retrieve binary image data from URL or cached storage"""
+#         try:
+#             if not image_url:
+#                 logger.error("Empty image_url provided")
+#                 return None
+
+#             # For locally stored files
+#             if image_url.startswith('/media/') or image_url.startswith('/uploads/'):
+#                 from django.core.files.storage import default_storage
+#                 with default_storage.open(image_url.lstrip('/'), 'rb') as f:
+#                     return f.read()
+            
+#             # For remote URLs
+#             else:
+#                 response = requests.get(image_url, stream=True, timeout=10)
+#                 response.raise_for_status()
+#                 return response.content
+                
+#         except Exception as e:
+#             logger.error(f"Failed to retrieve image binary: {str(e)}")
+#             return None
+
+#     def technical_support(self, description: str) -> str:
+#         """Provide text-based technical troubleshooting guidance"""
+#         try:
+#             if not description:
+#                 return "Please describe the technical issue you're experiencing."
+                
+#             response = self.model.invoke([
+#                 SystemMessage(content=SYSTEM_INSTRUCTION),
+#                 HumanMessage(content=f"Technical issue: {description}\n\nPlease provide step-by-step troubleshooting instructions.")
+#             ])
+#             return response.content
+#         except Exception as e:
+#             logger.error(f"Technical support error: {str(e)}")
+#             return f"Error providing technical support. Please try again with more details."
+
+#     def get_api_key(self):
+#         """Securely retrieve API key from environment or settings"""
+#         from django.conf import settings
+#         key = getattr(settings, 'GEMINI_AI_API_KEY', None)
+#         if not key:
+#             logger.critical("Missing Gemini API key in settings!")
+#         return key
+        
+
+#     def post(self, request, *args, **kwargs):
+#         user = request.user
+#         data = request.data
+#         chat_id = data.get('chat_id')
+#         image = request.FILES.get('image')
+#         user_message = data.get('message', '').strip()
+
+#         logger.info(f"Received request from user {user.id} with chat_id {chat_id}")
+
+#         # Validate input
+#         if not any([image, user_message]):
+#             logger.warning("No message or image provided")
+#             return Response(
+#                 {'error': 'At least one of message or image is required'},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         try:
+#             with transaction.atomic():
+#                 # Process image
+#                 image_url = None
+#                 image_data = None
+                
+#                 if image:
+#                     # Validate image size
+#                     if image.size > 10 * 1024 * 1024:  # 10MB limit
+#                         return Response(
+#                             {'error': 'Image size exceeds 10MB limit'},
+#                             status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+#                         )
+                    
+#                     # Get binary data first (reset pointer after)
+#                     image.seek(0)
+#                     image_data = image.read()
+#                     image.seek(0)
+                    
+#                     # Save the image to storage
+#                     # image_file = ContentFile(image_data)
+#                     image_url = self.upload_image(image)
+#                     print(image_url)
+#                     if not image_url:
+#                         logger.error("Image upload failed")
+#                         return Response(
+#                             {'error': 'Image upload failed'},
+#                             status=status.HTTP_400_BAD_REQUEST
+#                         )
+
+#                 # Get/create chat
+#                 chat = self.get_or_create_chat(user, chat_id)
+                
+#                 # If we have an image, analyze it first
+#                 analysis_result = ""
+#                 if image:
+#                     # Pass the InMemoryUploadedFile directly to analyze_image
+#                     analysis_result = self.analyze_image(query=user_message,image_input=image_url)
+                    
+#                     # Save the analysis as a system message
+#                     self.save_message(
+#                         chat,
+#                         f"System Image Analysis: {analysis_result}",
+#                         'system'
+#                     )
+
+#                 # Prepare the final input
+#                 if analysis_result and user_message:
+#                     final_input = f"User query: {user_message}\nImage analysis: {analysis_result}"
+#                 elif analysis_result:
+#                     final_input = f"Based on image analysis: {analysis_result}"
+#                 else:
+#                     final_input = user_message
+
+#                 # Get chat history
+#                 chat_history = self.get_chat_history(chat)
+                
+#                 # Execute the agent
+#                 response = self.agent_executor.invoke({
+#                     "input": final_input,
+#                     "chat_history": chat_history
+#                 })
+
+#                 # Save messages
+#                 self.save_message(chat, user_message, 'user', image_url)
+#                 self.save_message(chat, response['output'], 'bot')
+
+#                 # Create diagnosis record for image-based queries
+#                 if image_url:
+#                     Diagnosis.objects.create(
+#                         user=user,
+#                         symptoms=user_message,
+#                         diagnosis_result=response['output'],
+#                         image_url=image_url
+#                     )
+
+#                 return Response({
+#                     'response': response['output'],
+#                     'chat_id': chat.id
+#                 }, status=status.HTTP_200_OK)
+
+#         except ValidationError as ve:
+#             logger.warning(f"Validation error: {str(ve)}")
+#             return Response({'error': str(ve)}, status=status.HTTP_400_BAD_REQUEST)
+#         except Exception as e:
+#             logger.exception("Chat processing error")
+#             return Response(
+#                 {'error': 'Processing failed. Please try again.'},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+#     def get_chat_history(self, chat):
+#         """Retrieve and format chat history from database for LangChain"""
+#         try:
+#             history = []
+#             messages = ChatMessage.objects.filter(chat=chat).order_by('timestamp')[:15]
+            
+#             for msg in messages:
+#                 if msg.sender == 'user' and msg.image_url:
+#                     try:
+#                         image_data = self.get_image_binary(msg.image_url)
+#                         if image_data:
+#                             encoded_image = base64.b64encode(image_data).decode('utf-8')
+#                             data_uri = f"data:image/jpeg;base64,{encoded_image}"
+#                             content = [
+#                                 {"type": "text", "text": msg.message or ""},
+#                                 {"type": "image_url", "image_url": data_uri}
+#                             ]
+#                             history.append(HumanMessage(content=content))
+#                         else:
+#                             history.append(HumanMessage(content=f"{msg.message} [Image not available]"))
+#                     except Exception as e:
+#                         logger.error(f"Error processing image in chat history: {str(e)}")
+#                         history.append(HumanMessage(content=f"{msg.message} [Image processing error]"))
+#                 elif msg.sender == 'user':
+#                     history.append(HumanMessage(content=msg.message))
+#                 else:
+#                     history.append(AIMessage(content=msg.message))
+            
+#             return history
+#         except Exception as e:
+#             logger.error(f"Error retrieving chat history: {str(e)}")
+#             return []
+
+#     def upload_image(self, image_file):
+#         """Upload image to storage with proper error handling"""
+#         try:
+#             if hasattr(image_file, 'seek') and callable(image_file.seek):
+#                 image_file.seek(0)
+                
+#             # Implement your image upload logic here
+#             image_url = upload_image_to_backblaze(image_file)
+            
+#             if not image_url:
+#                 from django.core.files.storage import default_storage
+#                 filename = f"tech_support/{uuid4()}.jpg"
+#                 path = default_storage.save(filename, image_file)
+#                 image_url = default_storage.url(path)
+                
+#             return image_url
+#         except Exception as e:
+#             logger.error(f"Image upload failed: {str(e)}")
+#             return None
+
+#     def get_or_create_chat(self, user, chat_id):
+#         """Get existing chat or create new one with proper validation"""
+#         if chat_id:
+#             try:
+#                 return Chat.objects.get(id=chat_id, user=user)
+#             except Chat.DoesNotExist:
+#                 raise ValidationError('Invalid chat ID')
+#         return Chat.objects.create(user=user)
+
+#     def save_message(self, chat, content, sender, image_url=None):
+#         """Save message to database with error handling"""
+#         try:
+#             ChatMessage.objects.create(
+#                 chat=chat,
+#                 sender=sender,
+#                 message=content,
+#                 image_url=image_url
+#             )
+#         except Exception as e:
+#             logger.error(f"Failed to save message: {str(e)}")
+
+
+import logging
+from typing import Optional, List, Dict, Any, Union
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
+from .models import Chat, ChatMessage, Diagnosis
+from django.core.files.base import ContentFile
+from django.db import transaction
+import base64
+import requests
+import json
+from uuid import uuid4
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from google.generativeai import GenerativeModel
+import google.generativeai as genai
+from io import BytesIO
+from PIL import Image
+
+NEW_GEMINI_API_KEY = settings.NEW_GEMINI_AI_API_KEY
+logger = logging.getLogger(__name__)
+
+
+
 class DiagnosisChatbotView(APIView):
     permission_classes = [IsAuthenticated]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setup_langchain()
+        self.setup_models()
 
-    def setup_langchain(self):
-        """Initialize LangChain components with proper configuration"""
-        # Configure the main model for text responses
-        self.model = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
-            temperature=0.7,
-            top_p=0.95,
-            top_k=64,
-            max_output_tokens=8192,
-            api_key=self.get_api_key(),
-        )
-
-        # Define tools with proper typing and descriptions
-        self.tools = [
-            Tool.from_function(
-                func=self.analyze_image,
-                name="analyze_image",
-                description="Analyze device images to identify technical issues. Use this when the user uploads an image.",
-                args_schema={"image_url": str, "query": str},
-                return_direct=False,
-            ),
-            Tool.from_function(
-                func=self.technical_support,
-                name="technical_support",
-                description="Provide text-based technical troubleshooting guidance. Use this for text-only technical questions.",
-                args_schema={"description": str},
-                return_direct=False,
-            )
-        ]
-
-        # Create a more detailed prompt template
-        self.prompt = ChatPromptTemplate.from_messages([
-            ("system", SYSTEM_INSTRUCTION),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad"),
-        ])
-
-        # Set up the agent with proper LangChain syntax
-        self.agent_executor = self.create_agent_executor()
-
-    def create_agent_executor(self):
-        """Create properly configured LangChain agent"""
-        def _format_chat_history(chat_history):
-            """Convert Django chat history to LangChain message format"""
-            formatted_messages = []
-            for msg in chat_history:
-                if isinstance(msg, HumanMessage) or isinstance(msg, AIMessage):
-                    formatted_messages.append(msg)
-            return formatted_messages
-
-        # Bind the model to use tools
-        agent = (
-            {
-                "input": lambda x: x["input"],
-                "chat_history": lambda x: _format_chat_history(x.get("chat_history", [])),
-                "agent_scratchpad": lambda x: format_to_openai_function_messages(x.get("intermediate_steps", [])),
-            }
-            | self.prompt
-            | self.model.bind_tools(self.tools)
-            | OpenAIFunctionsAgentOutputParser()
-        )
-
-        # Create the executor with verbose mode for debugging
-        return AgentExecutor(
-            agent=agent,
-            tools=self.tools,
-            verbose=True,
-            handle_parsing_errors=True,
-            max_iterations=3,
-        )
-
-
+    def setup_models(self):
+        """Initialize Gemini models"""
+        api_key = self.get_api_key()
+        if not api_key:
+            raise ValueError("Missing Gemini API key")
+        
+        genai.configure(api_key=api_key)
+        self.text_model = GenerativeModel('gemini-1.5-flash')
+        self.vision_model = GenerativeModel('gemini-1.5-pro')
 
     def analyze_image(self, image_input: Union[str, InMemoryUploadedFile], query: str = "") -> str:
-            """Analyze a device image using Gemini's Vision API with the official Google client library"""
-            
-            try:
-                # Get image binary
-                if isinstance(image_input, InMemoryUploadedFile):
-                    # Handle direct file upload
-                    image_input.seek(0)
-                    image_data = image_input.read()
-                    image = Image.open(BytesIO(image_data))
-                elif isinstance(image_input, str):
-                    # Handle URL
-                    if image_input.startswith(('http://', 'https://')):
-                        response = requests.get(image_input)
-                        response.raise_for_status()
-                        image = Image.open(BytesIO(response.content))
-                    else:
-                        # Handle local file path
-                        with open(image_input, 'rb') as f:
-                            image = Image.open(f)
+        """Analyze a device image using Gemini's Vision API"""
+        try:
+            # Get image binary
+            if isinstance(image_input, InMemoryUploadedFile):
+                image_input.seek(0)
+                image_data = image_input.read()
+                image = Image.open(BytesIO(image_data))
+            elif isinstance(image_input, str):
+                if image_input.startswith(('http://', 'https://')):
+                    response = requests.get(image_input)
+                    response.raise_for_status()
+                    image = Image.open(BytesIO(response.content))
                 else:
-                    raise ValueError("Invalid image input type")
+                    with open(image_input, 'rb') as f:
+                        image = Image.open(f)
+            else:
+                raise ValueError("Invalid image input type")
+            
+            prompt = query if query else "Analyze this technical device image for issues."
+            response = self.vision_model.generate_content([prompt, image])
+            
+            if not response.parts:
+                logger.error("No response parts in Gemini response")
+                return "Could not analyze image. Please try again."
                 
-                # Configure the API key
-                api_key = self.get_api_key()
-                if not api_key:
-                    raise ValueError("Missing Gemini API key")
+            return response.text
+            
+        except Exception as e:
+            logger.error(f"Image analysis error: {str(e)}")
+            return f"Error analyzing image: {str(e)}"
+
+    def technical_support(self, description: str) -> str:
+        """Provide text-based technical troubleshooting guidance"""
+        try:
+            if not description:
+                return "Please describe the technical issue you're experiencing."
                 
-                genai.configure(api_key=NEW_GEMINI_API_KEY)
-                
-                # Initialize the model (you can choose between different models)
-                model = GenerativeModel('gemini-1.5-pro')  # or 'gemini-pro-vision' or 'gemini-1.0-pro'
-                
-                # Generate content
-                prompt = query if query else "Analyze this technical device image for issues."
-                response = model.generate_content([prompt, image])
-                
-                # Handle the response
-                if not response.parts:
-                    logger.error("No response parts in Gemini response")
-                    return "Could not analyze image. Please try again."
-                    
-                return response.text
-                
-            except Exception as e:
-                logger.error(f"Image analysis error: {str(e)}")
-                return f"Error analyzing image: {str(e)}"
+            response = self.text_model.generate_content([
+                SYSTEM_INSTRUCTION,
+                f"Technical issue: {description}\n\nPlease provide step-by-step troubleshooting instructions."
+            ])
+            return response.text
+        except Exception as e:
+            logger.error(f"Technical support error: {str(e)}")
+            return f"Error providing technical support. Please try again with more details."
+
     def get_image_binary(self, image_url: str) -> bytes:
         """Retrieve binary image data from URL or cached storage"""
         try:
@@ -345,13 +663,10 @@ class DiagnosisChatbotView(APIView):
                 logger.error("Empty image_url provided")
                 return None
 
-            # For locally stored files
             if image_url.startswith('/media/') or image_url.startswith('/uploads/'):
                 from django.core.files.storage import default_storage
                 with default_storage.open(image_url.lstrip('/'), 'rb') as f:
                     return f.read()
-            
-            # For remote URLs
             else:
                 response = requests.get(image_url, stream=True, timeout=10)
                 response.raise_for_status()
@@ -361,29 +676,56 @@ class DiagnosisChatbotView(APIView):
             logger.error(f"Failed to retrieve image binary: {str(e)}")
             return None
 
-    def technical_support(self, description: str) -> str:
-        """Provide text-based technical troubleshooting guidance"""
+    def process_chat_input(self, input_text: str, chat_history: List[Dict], image_url: str = None) -> str:
+        """Process user input with context and history"""
         try:
-            if not description:
-                return "Please describe the technical issue you're experiencing."
-                
-            response = self.model.invoke([
-                SystemMessage(content=SYSTEM_INSTRUCTION),
-                HumanMessage(content=f"Technical issue: {description}\n\nPlease provide step-by-step troubleshooting instructions.")
-            ])
-            return response.content
-        except Exception as e:
-            logger.error(f"Technical support error: {str(e)}")
-            return f"Error providing technical support. Please try again with more details."
+            # Format chat history for Gemini
+            history_messages = []
+            for msg in chat_history:
+                if msg['sender'] == 'user':
+                    if msg.get('image_url'):
+                        image_data = self.get_image_binary(msg['image_url'])
+                        if image_data:
+                            image = Image.open(BytesIO(image_data))
+                            history_messages.append({
+                                'role': 'user',
+                                'parts': [msg['message'], image] if msg['message'] else [image]
+                            })
+                        else:
+                            history_messages.append({
+                                'role': 'user',
+                                'parts': [f"{msg['message']} [Image not available]"]
+                            })
+                    else:
+                        history_messages.append({
+                            'role': 'user',
+                            'parts': [msg['message']]
+                        })
+                else:
+                    history_messages.append({
+                        'role': 'model',
+                        'parts': [msg['message']]
+                    })
 
-    def get_api_key(self):
-        """Securely retrieve API key from environment or settings"""
-        from django.conf import settings
-        key = getattr(settings, 'GEMINI_AI_API_KEY', None)
-        if not key:
-            logger.critical("Missing Gemini API key in settings!")
-        return key
-        
+            # Add current input
+            current_input = []
+            if image_url:
+                image_data = self.get_image_binary(image_url)
+                if image_data:
+                    image = Image.open(BytesIO(image_data))
+                    current_input.append(image)
+            if input_text:
+                current_input.insert(0, input_text)
+
+            # Generate response
+            chat = self.text_model.start_chat(history=history_messages)
+            response = chat.send_message(current_input)
+            
+            return response.text
+            
+        except Exception as e:
+            logger.error(f"Chat processing error: {str(e)}")
+            return f"Error processing your request. Please try again."
 
     def post(self, request, *args, **kwargs):
         user = request.user
@@ -394,7 +736,6 @@ class DiagnosisChatbotView(APIView):
 
         logger.info(f"Received request from user {user.id} with chat_id {chat_id}")
 
-        # Validate input
         if not any([image, user_message]):
             logger.warning("No message or image provided")
             return Response(
@@ -406,25 +747,14 @@ class DiagnosisChatbotView(APIView):
             with transaction.atomic():
                 # Process image
                 image_url = None
-                image_data = None
-                
                 if image:
-                    # Validate image size
-                    if image.size > 10 * 1024 * 1024:  # 10MB limit
+                    if image.size > 10 * 1024 * 1024:
                         return Response(
                             {'error': 'Image size exceeds 10MB limit'},
                             status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
                         )
                     
-                    # Get binary data first (reset pointer after)
-                    image.seek(0)
-                    image_data = image.read()
-                    image.seek(0)
-                    
-                    # Save the image to storage
-                    # image_file = ContentFile(image_data)
                     image_url = self.upload_image(image)
-                    print(image_url)
                     if not image_url:
                         logger.error("Image upload failed")
                         return Response(
@@ -435,51 +765,47 @@ class DiagnosisChatbotView(APIView):
                 # Get/create chat
                 chat = self.get_or_create_chat(user, chat_id)
                 
-                # If we have an image, analyze it first
-                analysis_result = ""
-                if image:
-                    # Pass the InMemoryUploadedFile directly to analyze_image
-                    analysis_result = self.analyze_image(query=user_message,image_input=image_url)
-                    
-                    # Save the analysis as a system message
-                    self.save_message(
-                        chat,
-                        f"System Image Analysis: {analysis_result}",
-                        'system'
-                    )
-
-                # Prepare the final input
-                if analysis_result and user_message:
-                    final_input = f"User query: {user_message}\nImage analysis: {analysis_result}"
-                elif analysis_result:
-                    final_input = f"Based on image analysis: {analysis_result}"
-                else:
-                    final_input = user_message
-
                 # Get chat history
                 chat_history = self.get_chat_history(chat)
                 
-                # Execute the agent
-                response = self.agent_executor.invoke({
-                    "input": final_input,
-                    "chat_history": chat_history
-                })
+                # Process input
+                if image_url:
+                    if user_message:
+                        response_text = self.process_chat_input(
+                            f"User query: {user_message}",
+                            chat_history,
+                            image_url
+                        )
+                    else:
+                        # Image-only analysis
+                        analysis_result = self.analyze_image(image_url)
+                        self.save_message(
+                            chat,
+                            f"System Image Analysis: {analysis_result}",
+                            'system'
+                        )
+                        response_text = self.process_chat_input(
+                            f"Based on image analysis: {analysis_result}",
+                            chat_history
+                        )
+                else:
+                    response_text = self.process_chat_input(user_message, chat_history)
 
                 # Save messages
                 self.save_message(chat, user_message, 'user', image_url)
-                self.save_message(chat, response['output'], 'bot')
+                self.save_message(chat, response_text, 'bot')
 
-                # Create diagnosis record for image-based queries
+                # Create diagnosis record if image was provided
                 if image_url:
                     Diagnosis.objects.create(
                         user=user,
                         symptoms=user_message,
-                        diagnosis_result=response['output'],
+                        diagnosis_result=response_text,
                         image_url=image_url
                     )
 
                 return Response({
-                    'response': response['output'],
+                    'response': response_text,
                     'chat_id': chat.id
                 }, status=status.HTTP_200_OK)
 
@@ -492,33 +818,20 @@ class DiagnosisChatbotView(APIView):
                 {'error': 'Processing failed. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
     def get_chat_history(self, chat):
-        """Retrieve and format chat history from database for LangChain"""
+        """Retrieve chat history from database"""
         try:
             history = []
             messages = ChatMessage.objects.filter(chat=chat).order_by('timestamp')[:15]
             
             for msg in messages:
-                if msg.sender == 'user' and msg.image_url:
-                    try:
-                        image_data = self.get_image_binary(msg.image_url)
-                        if image_data:
-                            encoded_image = base64.b64encode(image_data).decode('utf-8')
-                            data_uri = f"data:image/jpeg;base64,{encoded_image}"
-                            content = [
-                                {"type": "text", "text": msg.message or ""},
-                                {"type": "image_url", "image_url": data_uri}
-                            ]
-                            history.append(HumanMessage(content=content))
-                        else:
-                            history.append(HumanMessage(content=f"{msg.message} [Image not available]"))
-                    except Exception as e:
-                        logger.error(f"Error processing image in chat history: {str(e)}")
-                        history.append(HumanMessage(content=f"{msg.message} [Image processing error]"))
-                elif msg.sender == 'user':
-                    history.append(HumanMessage(content=msg.message))
-                else:
-                    history.append(AIMessage(content=msg.message))
+                history.append({
+                    'sender': msg.sender,
+                    'message': msg.message,
+                    'image_url': msg.image_url,
+                    'timestamp': msg.timestamp
+                })
             
             return history
         except Exception as e:
@@ -526,7 +839,7 @@ class DiagnosisChatbotView(APIView):
             return []
 
     def upload_image(self, image_file):
-        """Upload image to storage with proper error handling"""
+        """Upload image to storage"""
         try:
             if hasattr(image_file, 'seek') and callable(image_file.seek):
                 image_file.seek(0)
@@ -546,7 +859,7 @@ class DiagnosisChatbotView(APIView):
             return None
 
     def get_or_create_chat(self, user, chat_id):
-        """Get existing chat or create new one with proper validation"""
+        """Get existing chat or create new one"""
         if chat_id:
             try:
                 return Chat.objects.get(id=chat_id, user=user)
@@ -555,7 +868,7 @@ class DiagnosisChatbotView(APIView):
         return Chat.objects.create(user=user)
 
     def save_message(self, chat, content, sender, image_url=None):
-        """Save message to database with error handling"""
+        """Save message to database"""
         try:
             ChatMessage.objects.create(
                 chat=chat,
@@ -566,6 +879,13 @@ class DiagnosisChatbotView(APIView):
         except Exception as e:
             logger.error(f"Failed to save message: {str(e)}")
 
+    def get_api_key(self):
+        """Securely retrieve API key"""
+        from django.conf import settings
+        key = getattr(settings, 'GEMINI_AI_API_KEY', None)
+        if not key:
+            logger.critical("Missing Gemini API key in settings!")
+        return key
 
 class UserChatsView(APIView):
     permission_classes = [IsAuthenticated]  # Ensure only logged-in users can access
