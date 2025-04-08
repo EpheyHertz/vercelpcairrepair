@@ -1,17 +1,13 @@
 import os
+import re
 import tempfile
+import requests
+from datetime import datetime, timedelta, timezone
 from rest_framework.exceptions import ValidationError
 from django.conf import settings
 from b2sdk.v2 import B2Api, InMemoryAccountInfo
-
-from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse
-import requests
-
-from django.core.exceptions import ValidationError
-
-
 
 def upload_image_to_backblaze(file, existing_image=None, bucket_name=settings.AWS_STORAGE_BUCKET_NAME):
     # Validate the file
@@ -20,7 +16,7 @@ def upload_image_to_backblaze(file, existing_image=None, bucket_name=settings.AW
     
     # Delete existing image if applicable
     if existing_image:
-        existing_image.delete()  # Remove old image from Backblaze
+        existing_image.delete()
     
     # Create a temporary file
     with tempfile.NamedTemporaryFile(delete=False) as temp_file:
@@ -47,58 +43,81 @@ def upload_image_to_backblaze(file, existing_image=None, bucket_name=settings.AW
     
     return image_url
 
-
-
-
-
-
 def convert_relative_time_to_date(relative_time):
-    """
-    Convert a relative time string like '3 hours ago' into an actual datetime object.
-    """
+    """Convert relative time strings to UTC datetime objects"""
     try:
-        # If the time is in the format like 'X hours ago' or 'X days ago'
-        return parse(relative_time)
-    except ValueError:
+        # Try parsing absolute dates first
+        parsed_date = parse(relative_time)
+        if parsed_date.tzinfo is None:
+            parsed_date = parsed_date.replace(tzinfo=timezone.utc)
+        else:
+            parsed_date = parsed_date.astimezone(timezone.utc)
+        return parsed_date
+    except (ValueError, OverflowError):
+        pass  # Continue to relative time parsing
+    
+    # Handle relative time patterns
+    match = re.match(
+        r'(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago', 
+        relative_time.lower().strip()
+    )
+    if not match:
         return None
 
+    value = int(match.group(1))
+    unit = match.group(2)
+
+    unit_conversion = {
+        'second': 'seconds',
+        'minute': 'minutes',
+        'hour': 'hours',
+        'day': 'days',
+        'week': 'weeks',
+        'month': 'months',
+        'year': 'years'
+    }
+
+    try:
+        now = datetime.now(timezone.utc)
+        kwargs = {unit_conversion[unit]: value}
+        return now - relativedelta(**kwargs)
+    except KeyError:
+        return None
 
 def fetch_news_from_scraper():
     try:
-        # Send a GET request to the FastAPI endpoint
         response = requests.get('https://vercelfastapi-mu.vercel.app/scrape-newsarticles/')
+        response.raise_for_status()
 
-        # Check if the request was successful (status code 200)
-        if response.status_code == 200:
-            news_data = response.json()  # Assuming the response is JSON
+        news_data = response.json()
+        articles = []
 
-            # Process the data into the desired format
-            articles = []
-            for article in news_data:
-                # Extract the required fields and convert `published_at`
-                published_at = article.get('date', '')
-                real_date = convert_relative_time_to_date(published_at)
-                
+        for article in news_data:
+            raw_date = article.get('date', '')
+            date_obj = convert_relative_time_to_date(raw_date)
+            
+            if date_obj:
+                # Format to ISO 8601 with microseconds and Zulu time
+                published_at = date_obj.isoformat(timespec='microseconds').replace('+00:00', 'Z')
+            else:
+                published_at = raw_date  # Fallback to original value
 
-                # Format the date into a standard format, e.g., YYYY-MM-DD
-                if real_date:
-                    published_at = real_date.strftime('%Y-%m-%d %H:%M:%S')
-                else:
-                    published_at = article.get('date') # 
-                articles.append({
-                    'source': article.get('source', 'PCWorld'),
-                    'author': article.get('author', ''),
-                    'description': article.get('excerpt', ''),
-                    'url': article.get('link', ''),
-                    'urlToImage': article.get('image', ''),
-                    'published_at': published_at,
-                    'content': article.get('excerpt', ''),
-                })
+            articles.append({
+                'source': article.get('source', 'PCWorld'),
+                'author': article.get('author', ''),
+                'description': article.get('excerpt', ''),
+                'url': article.get('link', ''),
+                'image_url': article.get('image', ''),
+                'published_at': published_at,
+                'content': article.get('excerpt', ''),
+                'title': article.get('title', ''),
+            })
 
-            return articles  # Return the list of formatted articles
+        return articles
 
-        else:
-            raise ValidationError(f"Error fetching news: {response.status_code}")
-
-    except requests.exceptions.RequestException as e:
-        raise ValidationError(f"Error making request: {e}")
+    except requests.exceptions.HTTPError as e:
+        raise ValidationError(f"HTTP error fetching news: {str(e)}")
+    except requests.exceptions.JSONDecodeError:
+        raise ValidationError("Invalid JSON response from news source")
+    except Exception as e:
+        raise ValidationError(f"Error fetching news: {str(e)}")

@@ -1420,7 +1420,7 @@ class ContactUsView(APIView):
             return Response({'error': f'Failed to send acknowledgment email to user: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 class TechNewsAPIView(APIView):
-    # permission_classes=[IsAuthenticated]
+    permission_classes=[IsAuthenticated]
     def get(self, request):
         # Get pagination params from request
         page = int(request.GET.get('page', 1))  # Default to page 1
