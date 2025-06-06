@@ -86,7 +86,7 @@ def convert_relative_time_to_date(relative_time):
 
 def fetch_news_from_scraper():
     try:
-        response = requests.get('https://vercelfastapi-mu.vercel.app/scrape-newsarticles/')
+        response = requests.get('https://vercelfastapi-mu.vercel.app/scrape-all-news/')
         response.raise_for_status()
 
         news_data = response.json()
