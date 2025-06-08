@@ -78,12 +78,18 @@ class NewsSource(models.Model):
         return self.name
 
 class NewsArticle(models.Model):
-    source = models.ForeignKey(NewsSource, on_delete=models.CASCADE, related_name='articles',default=1)
+    source = models.ForeignKey(
+        NewsSource,
+        on_delete=models.CASCADE,
+        related_name='articles',
+        null=True,  
+        blank=True  
+    )
     author = models.CharField(max_length=255, null=True, blank=True)
     title = models.CharField(max_length=500,unique=True,default='No title') 
     description = models.TextField(null=True, blank=True)
     url = models.URLField(max_length=1000)
-    urlToImage = models.URLField(max_length=1000,null=True, blank=True)
+    image_url = models.URLField(max_length=1000,null=True, blank=True)
     published_at = models.DateTimeField()
     content = models.TextField(null=True, blank=True)
 

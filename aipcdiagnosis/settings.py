@@ -78,7 +78,12 @@ CORS_ALLOW_CREDENTIALS = True
 
 AUTH_USER_MODEL = 'aipc_diagnosis.User'
 ROOT_URLCONF = 'aipcdiagnosis.urls'
-
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake",
+    }
+}
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',

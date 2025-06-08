@@ -22,6 +22,15 @@ import http.client
 import urllib.parse
 import json
 from django.utils.http import urlencode
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.core.cache import cache
+from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
+from django.conf import settings
+
+from .models import NewsArticle
+from .serializers import NewsArticleSerializer
 
 from django.utils import timezone
 import pytz    
@@ -1456,73 +1465,133 @@ class ContactUsView(APIView):
         except Exception as e:
             return Response({'error': f'Failed to send acknowledgment email to user: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-class TechNewsAPIView(APIView):
-    # permission_classes=[IsAuthenticated]
-    def get(self, request):
-        # Get pagination params from request
-        page = int(request.GET.get('page', 1))  # Default to page 1
-        limit = int(request.GET.get('limit', 50))  # Default to 50 articles per page
-        offset = (page - 1) * limit
+# class TechNewsAPIView(APIView):
+#     # permission_classes=[IsAuthenticated]
+#     def get(self, request):
+#         # Get pagination params from request
+#         page = int(request.GET.get('page', 1))  # Default to page 1
+#         limit = int(request.GET.get('limit', 50))  # Default to 50 articles per page
+#         offset = (page - 1) * limit
 
-        # Prepare API request parameters
-        api_token = settings.NEWS_API2_KEY
-        params = urllib.parse.urlencode({
-            'api_token': api_token,
-            'categories': 'tech,business',
-            'language': 'en',
-            'limit': limit,
-            'page': page,
-        })
+#         # Prepare API request parameters
+#         api_token = settings.NEWS_API2_KEY
+#         params = urllib.parse.urlencode({
+#             'api_token': api_token,
+#             'categories': 'tech,business',
+#             'language': 'en',
+#             'limit': limit,
+#             'page': page,
+#         })
 
-        try:
-            # Fetch articles from the external API
-            conn = http.client.HTTPSConnection('api.thenewsapi.com')
-            conn.request('GET', f'/v1/news/all?{params}')
-            res = conn.getresponse()
-            data = res.read()
+#         try:
+#             # Fetch articles from the external API
+#             conn = http.client.HTTPSConnection('api.thenewsapi.com')
+#             conn.request('GET', f'/v1/news/all?{params}')
+#             res = conn.getresponse()
+#             data = res.read()
 
-            decoded_data = data.decode('utf-8')
-            news_data = json.loads(decoded_data)
-            api_articles = news_data.get('data', [])
-            scrapped_articles=fetch_news_from_scraper()
-            all_articles_from_apis=api_articles+scrapped_articles
+#             decoded_data = data.decode('utf-8')
+#             news_data = json.loads(decoded_data)
+#             api_articles = news_data.get('data', [])
+#             scrapped_articles=fetch_news_from_scraper()
+#             all_articles_from_apis=api_articles+scrapped_articles
            
             
-            # Fetch articles from the database
-            db_articles = list(
-                    NewsArticle.objects.all()
-                    .order_by('-published_at')  
-                    .values(
-                        'source__name',
-                        'author',
-                        'title',
-                        'description',
-                        'url',
-                        'urlToImage',
-                        'published_at',
-                        'content'
-                    ) 
-                )
+#             # Fetch articles from the database
+#             db_articles = list(
+#                     NewsArticle.objects.all()
+#                     .order_by('-published_at')  
+#                     .values(
+#                         'source__name',
+#                         'author',
+#                         'title',
+#                         'description',
+#                         'url',
+#                         'urlToImage',
+#                         'published_at',
+#                         'content'
+#                     ) 
+#                 )
 
-            combined_articles = all_articles_from_apis + db_articles
-            # Combine API articles and DB articles
+#             combined_articles = all_articles_from_apis + db_articles
+#             # Combine API articles and DB articles
             
 
-            # Pagination handling
-            total_articles = len(combined_articles) # Total count from API and DB
+#             # Pagination handling
+#             total_articles = len(combined_articles) # Total count from API and DB
+#             total_pages = (total_articles // limit) + (1 if total_articles % limit else 0)
+#             has_next = page < total_pages
+
+#             return Response({
+#                 'page': page,
+#                 'total_pages': total_pages,
+#                 'has_next': has_next,
+#                 'articles': combined_articles,
+#             }, status=status.HTTP_200_OK)
+
+#         except Exception as e:
+#             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+class TechNewsAPIView(APIView):
+    def get(self, request):
+        try:
+            # Query parameters
+            page = int(request.GET.get("page", 1))
+            limit = int(request.GET.get("limit", 20))
+            search_query = request.GET.get("search", "").strip()
+            sort_by = request.GET.get("sort", "published_at")
+            order = "-" if request.GET.get("order", "desc") == "desc" else ""
+            offset = (page - 1) * limit
+
+            # Create a cache key based on query params
+            cache_key = f"tech_news:page={page}:limit={limit}:search={search_query}:sort={sort_by}:order={order}"
+            cached_response = cache.get(cache_key)
+
+            if cached_response:
+                return Response(cached_response, status=status.HTTP_200_OK)
+
+            # Queryset building
+            queryset = NewsArticle.objects.select_related("source")
+
+            if search_query:
+                vector = (
+                    SearchVector("title", weight="A") +
+                    SearchVector("description", weight="B") +
+                    SearchVector("content", weight="C") +
+                    SearchVector("source__name", weight="B")
+                )
+                query = SearchQuery(search_query)
+                queryset = queryset.annotate(
+                    rank=SearchRank(vector, query)
+                ).filter(rank__gte=0.1).order_by("-rank", f"{order}{sort_by}")
+            else:
+                queryset = queryset.order_by(f"{order}{sort_by}")
+
+            # Pagination
+            total_articles = queryset.count()
+            paginated_articles = queryset[offset:offset + limit]
+            serialized_articles = NewsArticleSerializer(paginated_articles, many=True).data
             total_pages = (total_articles // limit) + (1 if total_articles % limit else 0)
             has_next = page < total_pages
 
-            return Response({
-                'page': page,
-                'total_pages': total_pages,
-                'has_next': has_next,
-                'articles': combined_articles,
-            }, status=status.HTTP_200_OK)
+            response_data = {
+                "page": page,
+                "total_pages": total_pages,
+                "has_next": has_next,
+                "articles": serialized_articles,
+                "total_articles": total_articles
+            }
+
+            # Store in cache (e.g., for 10 minutes)
+            cache.set(cache_key, response_data, timeout=600)
+
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class TechNewsAPIViewLocalHost(APIView):
     # permission_classes = [IsAuthenticated]

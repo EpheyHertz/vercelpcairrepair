@@ -1,7 +1,7 @@
 from rest_framework import serializers
 # from django.contrib.auth.models import User
 from rest_framework.validators import UniqueValidator
-from .models import UserProfile,Chat,ChatMessage,User, Question, Answer, Comment, LikeDislike, Follower
+from .models import UserProfile,Chat,ChatMessage,User, Question, Answer, Comment, LikeDislike, Follower,NewsSource, NewsArticle
 from django.db import transaction
 from rest_framework.validators import UniqueValidator
 from django.core.mail import send_mail
@@ -100,6 +100,30 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         # token['role'] = user.role  # Make sure you have a role field in your User model
 
         return token
+    
+
+
+class NewsSourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NewsSource
+        fields = ['name']
+
+class NewsArticleSerializer(serializers.ModelSerializer):
+    source = serializers.CharField(source='source.name')  # Return only the name as string
+
+    class Meta:
+        model = NewsArticle
+        fields = [
+            'source',
+            'author',
+            'title',
+            'description',
+            'url',
+            'image_url',
+            'published_at',
+            'content'
+        ]
+
 class ChatSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chat
