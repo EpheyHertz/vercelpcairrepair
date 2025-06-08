@@ -78,13 +78,7 @@ class NewsSource(models.Model):
         return self.name
 
 class NewsArticle(models.Model):
-    source = models.ForeignKey(
-        NewsSource,
-        on_delete=models.CASCADE,
-        related_name='articles',
-        null=True,  
-        blank=True  
-    )
+    source = models.CharField(max_length=255, null=True, blank=True)
     author = models.CharField(max_length=255, null=True, blank=True)
     title = models.CharField(max_length=500,unique=True,default='No title') 
     description = models.TextField(null=True, blank=True)

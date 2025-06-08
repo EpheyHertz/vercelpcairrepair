@@ -109,7 +109,6 @@ class NewsSourceSerializer(serializers.ModelSerializer):
         fields = ['name']
 
 class NewsArticleSerializer(serializers.ModelSerializer):
-    source = serializers.CharField(source='source.name')  # Return only the name as string
 
     class Meta:
         model = NewsArticle
@@ -123,6 +122,8 @@ class NewsArticleSerializer(serializers.ModelSerializer):
             'published_at',
             'content'
         ]
+
+
 
 class ChatSerializer(serializers.ModelSerializer):
     class Meta:
