@@ -80,7 +80,7 @@ class NewsSource(models.Model):
 class NewsArticle(models.Model):
     source = models.CharField(max_length=255, null=True, blank=True)
     author = models.CharField(max_length=255, null=True, blank=True)
-    title = models.CharField(max_length=500,unique=True,default='No title') 
+    title = models.CharField(max_length=500,default='No title') 
     description = models.TextField(null=True, blank=True)
     url = models.URLField(max_length=1000)
     image_url = models.URLField(max_length=1000,null=True, blank=True)
