@@ -1535,6 +1535,8 @@ class ContactUsView(APIView):
 
 
 
+
+
 class TechNewsAPIView(APIView):
     def get(self, request):
         try:
@@ -1546,22 +1548,22 @@ class TechNewsAPIView(APIView):
             order = "-" if request.GET.get("order", "desc") == "desc" else ""
             offset = (page - 1) * limit
 
-            # Create a cache key based on query params
+            # Create cache key
             cache_key = f"tech_news:page={page}:limit={limit}:search={search_query}:sort={sort_by}:order={order}"
             cached_response = cache.get(cache_key)
 
             if cached_response:
                 return Response(cached_response, status=status.HTTP_200_OK)
 
-            # Queryset building
-            queryset = NewsArticle.objects.select_related("source")
+            # Queryset without select_related (source is now a CharField)
+            queryset = NewsArticle.objects.all()
 
             if search_query:
                 vector = (
                     SearchVector("title", weight="A") +
                     SearchVector("description", weight="B") +
                     SearchVector("content", weight="C") +
-                    SearchVector("source__name", weight="B")
+                    SearchVector("source", weight="B")  
                 )
                 query = SearchQuery(search_query)
                 queryset = queryset.annotate(
@@ -1585,13 +1587,14 @@ class TechNewsAPIView(APIView):
                 "total_articles": total_articles
             }
 
-            # Store in cache (e.g., for 10 minutes)
+            # Cache response
             cache.set(cache_key, response_data, timeout=600)
 
             return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class TechNewsAPIViewLocalHost(APIView):
     # permission_classes = [IsAuthenticated]
